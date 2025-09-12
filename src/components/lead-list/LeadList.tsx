@@ -292,7 +292,7 @@ export function LeadList({
                         <Button
                           size="sm"
                           variant="default"
-                          onClick={() => onStatusUpdate?.(lead.id, 'drafted')}
+                          onClick={() => onLeadDetail?.(lead)}
                         >
                           Generate
                           <Sparkles className="h-4 w-4" />

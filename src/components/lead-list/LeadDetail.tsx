@@ -17,7 +17,9 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { ContentGeneration } from '@/components/content-generation/ContentGeneration'
 import type { LeadData, ColumnMapping, LeadStatus } from '@/types/lead'
-import { Trash2 } from 'lucide-react'
+import { Trash2, Copy, Download } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import type { ClaudeResponse } from '@/services/claudeService'
 
 interface LeadDetailProps {
   lead: LeadData
@@ -36,32 +38,115 @@ export function LeadDetail({
   onStatusUpdate,
   onDeleteLead,
 }: LeadDetailProps) {
-  // Group fields by type
-  const standardFields = [
-    'company',
-    'contact',
-    'email',
-    'title',
-    'department',
-    'phone',
-    'city',
-    'state',
-    'country',
-  ]
-  const standardData: Record<string, string> = {}
-  const customData: Record<string, string> = {}
+  const [generatedContent, setGeneratedContent] =
+    useState<ClaudeResponse | null>(null)
+  const [copySuccess, setCopySuccess] = useState(false)
 
-  // Separate standard and custom fields
-  Object.entries(lead).forEach(([key, value]) => {
-    if (['id', 'status', 'selected'].includes(key)) return
+  // Group fields by type using useMemo to prevent infinite re-renders
+  const { standardData, customData } = useMemo(() => {
+    const standardFields = [
+      'company',
+      'contact',
+      'email',
+      'title',
+      'department',
+      'phone',
+      'city',
+      'state',
+      'country',
+      'linkedin',
+    ]
+    const standard: Record<string, string> = {}
+    const custom: Record<string, string> = {}
 
-    const mappedField = columnMapping[key]
-    if (mappedField && standardFields.includes(mappedField)) {
-      standardData[mappedField] = String(value)
-    } else {
-      customData[key] = String(value)
+    // Separate standard and custom fields
+    Object.entries(lead).forEach(([key, value]) => {
+      if (['id', 'status', 'selected'].includes(key)) return
+
+      const mappedField = columnMapping[key]
+      if (mappedField && standardFields.includes(mappedField)) {
+        standard[mappedField] = String(value)
+      } else {
+        custom[key] = String(value)
+      }
+    })
+
+    return { standardData: standard, customData: custom }
+  }, [lead, columnMapping])
+
+  // Load generated content when modal opens
+  useEffect(() => {
+    if (open && (lead.status === 'drafted' || lead.status === 'exported')) {
+      const loadContent = () => {
+        const leadId = btoa(String(standardData.email || lead.id)).replace(
+          /[/+=]/g,
+          ''
+        )
+        const storedContent = localStorage.getItem(`lead_content_${leadId}`)
+        if (storedContent) {
+          try {
+            const parsed = JSON.parse(storedContent)
+            setGeneratedContent(parsed)
+          } catch (error) {
+            console.error('Failed to parse stored content:', error)
+          }
+        }
+      }
+
+      loadContent()
+
+      // Set up interval to refresh content every 2 seconds to catch edits
+      const interval = setInterval(loadContent, 2000)
+      return () => clearInterval(interval)
     }
-  })
+  }, [open, lead.status, lead.id, standardData.email])
+
+  // Create the complete JSON object
+  const createCompleteJson = () => {
+    const baseData = {
+      email: standardData.email || '',
+      first_name: standardData.contact?.split(' ')[0] || '',
+      last_name: standardData.contact?.split(' ').slice(1).join(' ') || '',
+      company: standardData.company || '',
+      title: standardData.title || '',
+      linkedin_url: standardData.linkedin || '',
+      tags: `#${standardData.department || 'Business'} #${standardData.company?.replace(/\s+/g, '')} #${standardData.title?.replace(/\s+/g, '')}`,
+      industry: customData.Industry || standardData.department || 'Technology',
+    }
+
+    if (generatedContent) {
+      return {
+        ...baseData,
+        snippet1: generatedContent.snippet1 || '',
+        snippet2: generatedContent.snippet2 || '',
+        snippet3: generatedContent.snippet3 || '',
+        snippet4: generatedContent.snippet4 || '',
+        snippet5: generatedContent.snippet5 || '',
+        snippet6: generatedContent.snippet6 || '',
+        snippet7: generatedContent.snippet7 || '',
+      }
+    }
+
+    return baseData
+  }
+
+  const handleCopyJson = async () => {
+    try {
+      const jsonData = JSON.stringify(createCompleteJson(), null, 2)
+      await navigator.clipboard.writeText(jsonData)
+      setCopySuccess(true)
+      setTimeout(() => setCopySuccess(false), 2000)
+    } catch (error) {
+      console.error('Failed to copy JSON:', error)
+    }
+  }
+
+  const handleExport = () => {
+    alert(
+      'This is where Woodpecker API would be. A user would be added to a campaign.'
+    )
+    onStatusUpdate?.(lead.id, 'exported')
+  }
 
   const getStatusColor = (status: string): string => {
     switch (status) {
@@ -120,9 +205,10 @@ export function LeadDetail({
             </CardContent>
           </Card>
 
-          {/* Content Generation */}
-          <ContentGeneration lead={lead} onStatusUpdate={onStatusUpdate} />
-
+          <ContentGeneration
+            lead={{ ...lead, ...standardData }}
+            onStatusUpdate={onStatusUpdate}
+          />
           {/* Custom Fields */}
           {Object.keys(customData).length > 0 && (
             <Card>
@@ -150,31 +236,72 @@ export function LeadDetail({
               </CardContent>
             </Card>
           )}
+
+          {/* JSON Preview Section */}
         </div>
 
         <SheetFooter className="border-t pt-4">
+          {(lead.status === 'drafted' || lead.status === 'exported') && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-lg">
+                      Generated Content JSON
+                    </CardTitle>
+                    <CardDescription>
+                      Complete lead data with generated email sequence - updates
+                      live as you edit
+                    </CardDescription>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCopyJson}
+                      className="gap-2"
+                    >
+                      <Copy className="h-4 w-4" />
+                      {copySuccess ? 'Copied!' : 'Copy JSON'}
+                    </Button>
+                    {lead.status !== 'exported' ? (
+                      <Button
+                        size="sm"
+                        onClick={handleExport}
+                        className="gap-2"
+                      >
+                        <Download className="h-4 w-4" />
+                        Export to Campaign
+                      </Button>
+                    ) : (
+                      <Button variant="outline" size="sm" disabled>
+                        Exported ✓
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="bg-muted/50 rounded-lg p-4 max-h-96 overflow-y-auto">
+                  <pre className="text-xs font-mono whitespace-pre-wrap">
+                    {JSON.stringify(createCompleteJson(), null, 2)}
+                  </pre>
+                </div>
+              </CardContent>
+            </Card>
+          )}{' '}
           <div className="flex gap-2 justify-end w-full">
-            {lead.status === 'drafted' && (
-              <Button onClick={() => onStatusUpdate?.(lead.id, 'exported')}>
-                Export Lead
-              </Button>
-            )}
             {lead.status === 'exported' && (
-              <>
-                <Button variant="outline" disabled>
-                  Exported ✓
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={() => {
-                    onDeleteLead?.(lead.id)
-                    onOpenChange(false)
-                  }}
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Remove from List
-                </Button>
-              </>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  onDeleteLead?.(lead.id)
+                  onOpenChange(false)
+                }}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Remove from List
+              </Button>
             )}
           </div>
         </SheetFooter>

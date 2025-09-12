@@ -91,15 +91,78 @@ export class ClaudeService {
     this.requestCount++
   }
 
+  private convertTextToHtml(text: string): string {
+    // Convert plain text to HTML with <div> tags
+    return text
+      .split('\n\n')
+      .map((paragraph) => paragraph.trim())
+      .filter((paragraph) => paragraph.length > 0)
+      .map((paragraph) => `<div>${paragraph}</div>`)
+      .join('<div><br></div>')
+  }
+
+  private parseTextBlocks(
+    responseText: string,
+    leadData: Record<string, unknown>
+  ): ClaudeResponse {
+    // Split by the delimiter
+    const blocks = responseText.split('---BLOCK---').filter(block => block.trim())
+    
+    if (blocks.length !== 7) {
+      throw new ClaudeApiError(
+        `Expected 7 content blocks, but received ${blocks.length}`,
+        'content',
+        true
+      )
+    }
+
+    // Extract lead data from the provided leadData parameter
+    const email = String(leadData.email || '')
+    const firstName = String(leadData.first_name || leadData.firstName || '')
+    const lastName = String(leadData.last_name || leadData.lastName || '')
+    const company = String(leadData.company || '')
+    const title = String(leadData.title || '')
+    const linkedinUrl = String(leadData.linkedin_url || leadData.linkedin || '')
+    const industry = String(leadData.industry || 'Technology')
+    const tags = String(leadData.tags || '')
+
+    // Parse each block
+    const snippet1 = blocks[0].trim() // Subject line (plain text)
+    const snippet2 = this.convertTextToHtml(blocks[1].trim()) // Day 1 Email (convert to HTML)
+    const snippet3 = blocks[2].trim() // LinkedIn message (plain text)
+    const snippet4 = this.convertTextToHtml(blocks[3].trim()) // Day 5 Bump (convert to HTML)
+    const snippet5 = this.convertTextToHtml(blocks[4].trim()) // Day 9-10 Follow-up (convert to HTML)
+    const snippet6 = this.convertTextToHtml(blocks[5].trim()) // Day 13 Bump (convert to HTML)
+    const snippet7 = this.convertTextToHtml(blocks[6].trim()) // Day 20 Breakup (convert to HTML)
+
+    return {
+      email,
+      first_name: firstName,
+      last_name: lastName,
+      company,
+      title,
+      linkedin_url: linkedinUrl,
+      tags,
+      industry,
+      snippet1,
+      snippet2,
+      snippet3,
+      snippet4,
+      snippet5,
+      snippet6,
+      snippet7,
+    }
+  }
+
   async generateContent(
     prompt: string,
-    _leadData: Record<string, unknown>
+    leadData: Record<string, unknown>
   ): Promise<ClaudeResponse> {
     try {
       await this.checkRateLimit()
 
       const response = await this.client.messages.create({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'claude-3-5-haiku-20241022',
         max_tokens: 4000,
         temperature: 0.7,
         messages: [
@@ -119,25 +182,11 @@ export class ClaudeService {
         )
       }
 
-      // Parse JSON response
-      let parsedResponse: ClaudeResponse
-      try {
-        parsedResponse = JSON.parse(content.text)
-      } catch (error) {
-        throw new ClaudeApiError(
-          'Failed to parse Claude API response as JSON',
-          'content',
-          true
-        )
-      }
+      // Parse text blocks response
+      const parsedResponse = this.parseTextBlocks(content.text, leadData)
 
       // Validate required fields
-      const requiredFields = [
-        'email',
-        'first_name',
-        'last_name',
-        'company',
-        'title',
+      const requiredSnippets = [
         'snippet1',
         'snippet2',
         'snippet3',
@@ -147,7 +196,7 @@ export class ClaudeService {
         'snippet7',
       ]
 
-      for (const field of requiredFields) {
+      for (const field of requiredSnippets) {
         if (!parsedResponse[field as keyof ClaudeResponse]) {
           throw new ClaudeApiError(
             `Missing required field: ${field}`,
