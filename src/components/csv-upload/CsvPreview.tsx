@@ -80,7 +80,7 @@ export function CsvPreview({ csvData, columnMapping, onConfirm, onCancel }: CsvP
         <div className="space-y-2">
           <h4 className="text-sm font-medium">Column Mapping</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-xs">
-            {mappedHeaders.map(({ original, mapped, isMapped, isStandardField }) => (
+            {mappedHeaders.map(({ original, mapped, isStandardField }) => (
               <div key={original} className="flex items-center gap-2 p-2 bg-muted/50 rounded">
                 <span className="font-mono truncate max-w-20" title={original}>
                   {original}

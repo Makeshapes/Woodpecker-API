@@ -42,7 +42,7 @@ describe('CsvUpload', () => {
     const csvContent = 'Company,Email,Contact Name\nTest Corp,test@example.com,John Doe'
     const file = new File([csvContent], 'test.csv', { type: 'text/csv' })
     
-    mockPapaParse.mockImplementation((file, options) => {
+    mockPapaParse.mockImplementation((_file: File, options: any) => {
       options.complete({
         data: [{ Company: 'Test Corp', Email: 'test@example.com', 'Contact Name': 'John Doe' }],
         meta: { fields: ['Company', 'Email', 'Contact Name'] },
@@ -69,7 +69,7 @@ describe('CsvUpload', () => {
     const csvContent = 'Company,Email,Contact Name\nTest Corp,test@example.com,John Doe'
     const file = new File([csvContent], 'test.csv', { type: 'text/csv' })
     
-    mockPapaParse.mockImplementation((file, options) => {
+    mockPapaParse.mockImplementation((_file: File, options: any) => {
       options.complete({
         data: [{ Company: 'Test Corp', Email: 'test@example.com', 'Contact Name': 'John Doe' }],
         meta: { fields: ['Company', 'Email', 'Contact Name'] },
@@ -97,7 +97,7 @@ describe('CsvUpload', () => {
     const csvContent = 'Company Name,Work Email,Full Name\nTest Corp,test@example.com,John Doe'
     const file = new File([csvContent], 'test.csv', { type: 'text/csv' })
     
-    mockPapaParse.mockImplementation((file, options) => {
+    mockPapaParse.mockImplementation((_file: File, options: any) => {
       options.complete({
         data: [{ 'Company Name': 'Test Corp', 'Work Email': 'test@example.com', 'Full Name': 'John Doe' }],
         meta: { fields: ['Company Name', 'Work Email', 'Full Name'] },
@@ -131,7 +131,7 @@ describe('CsvUpload', () => {
     const csvContent = 'Name,Phone\nJohn Doe,123-456-7890'
     const file = new File([csvContent], 'test.csv', { type: 'text/csv' })
     
-    mockPapaParse.mockImplementation((file, options) => {
+    mockPapaParse.mockImplementation((_file: File, options: any) => {
       options.complete({
         data: [{ Name: 'John Doe', Phone: '123-456-7890' }],
         meta: { fields: ['Name', 'Phone'] },
@@ -163,7 +163,7 @@ describe('CsvUpload', () => {
     const csvContent = 'Company,Email,Contact Name\nTest Corp,invalid-email,John Doe'
     const file = new File([csvContent], 'test.csv', { type: 'text/csv' })
     
-    mockPapaParse.mockImplementation((file, options) => {
+    mockPapaParse.mockImplementation((_file: File, options: any) => {
       options.complete({
         data: [{ Company: 'Test Corp', Email: 'invalid-email', 'Contact Name': 'John Doe' }],
         meta: { fields: ['Company', 'Email', 'Contact Name'] },
@@ -199,7 +199,7 @@ describe('CsvUpload', () => {
     
     const file = new File(['csv content'], 'test.csv', { type: 'text/csv' })
     
-    mockPapaParse.mockImplementation((file, options) => {
+    mockPapaParse.mockImplementation((_file: File, options: any) => {
       options.complete({
         data,
         meta: { fields: ['Company', 'Email', 'Contact Name'] },
@@ -249,7 +249,7 @@ describe('CsvUpload', () => {
     const file = new File(['csv content'], 'test.csv', { type: 'text/csv' })
     
     // Mock Papa Parse to complete immediately but we can test the processing text appears
-    mockPapaParse.mockImplementation((file, options) => {
+    mockPapaParse.mockImplementation((_file: File, options: any) => {
       // Simulate that parsing is happening
       setTimeout(() => {
         options.complete({
@@ -278,7 +278,7 @@ describe('CsvUpload', () => {
     
     const file = new File(['csv content'], 'test.csv', { type: 'text/csv' })
     
-    mockPapaParse.mockImplementation((file, options) => {
+    mockPapaParse.mockImplementation((_file: File, options: any) => {
       setTimeout(() => {
         options.complete({
           data: [{ Company: 'Test Corp', Email: 'test@example.com', 'Contact Name': 'John Doe' }],

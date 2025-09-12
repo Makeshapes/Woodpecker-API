@@ -26,6 +26,21 @@ interface CsvUploadProps {
   maxRows?: number
 }
 
+interface PapaParseResult {
+  data: Record<string, string>[]
+  meta: {
+    fields?: string[]
+  }
+  errors: PapaParseError[]
+}
+
+interface PapaParseError {
+  type: string
+  code: string
+  message: string
+  row?: number
+}
+
 const STANDARD_FIELDS = {
   company: [
     'company',
@@ -165,98 +180,20 @@ export function CsvUpload({ onDataLoaded, maxRows = 1000 }: CsvUploadProps) {
     return errors
   }
 
-  const processFile = useCallback((file: File) => {
-    if (!file || file.size === 0) {
-      setErrors(['Please select a valid CSV file'])
-      return
-    }
-
-    console.log(
-      'Processing file:',
-      file.name,
-      'Size:',
-      file.size,
-      'Type:',
-      file.type
-    )
-
-    setIsUploading(true)
-    setUploadProgress(0)
-    setFileName(file.name)
-    setErrors([])
-
-    // Progress simulation
-    const progressInterval = setInterval(() => {
-      setUploadProgress((prev) => {
-        if (prev < 90) return prev + 10
-        return prev
-      })
-    }, 100)
-
-    try {
-      Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        transformHeader: (header: string) => header.trim(),
-        transform: (value: string) => value?.trim() || '',
-        encoding: 'UTF-8',
-        dynamicTyping: false,
-        complete: (results: any) => {
-          clearInterval(progressInterval)
-          console.log('Papa Parse Results:', {
-            data: results.data?.length || 0,
-            headers: results.meta?.fields || [],
-            errors: results.errors?.length || 0,
-          })
-
-          if (!results.data || results.data.length === 0) {
-            setErrors([
-              'No data found in CSV file. Please check the file format and ensure it contains data rows.',
-            ])
-            setIsUploading(false)
-            return
-          }
-
-          if (!results.meta?.fields || results.meta.fields.length === 0) {
-            setErrors([
-              'No column headers found in CSV file. Please ensure the first row contains column headers.',
-            ])
-            setIsUploading(false)
-            return
-          }
-
-          processResults(
-            results.data,
-            results.meta.fields,
-            results.errors || []
-          )
-        },
-        error: (error: any) => {
-          clearInterval(progressInterval)
-          console.error('Papa Parse Error:', error)
-          setErrors([
-            `Failed to parse CSV: ${error.message}. Please check file format and encoding.`,
-          ])
-          setIsUploading(false)
-        },
-      })
-    } catch (error) {
-      clearInterval(progressInterval)
-      console.error('Unexpected error:', error)
-      setErrors([
-        `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      ])
-      setIsUploading(false)
-    }
-  }, [])
-
   const processResults = useCallback(
-    (data: Record<string, string>[], headers: string[], parseErrors: any[]) => {
+    (
+      data: Record<string, string>[],
+      headers: string[],
+      parseErrors: (string | PapaParseError)[]
+    ) => {
       setUploadProgress(95)
 
-      let errors = parseErrors
+      // Filter and format parse errors
+      let formattedParseErrors: string[] = parseErrors
         .filter(
-          (error) => error.type === 'Quotes' || error.type === 'FieldMismatch'
+          (error): error is PapaParseError =>
+            typeof error === 'object' &&
+            (error.type === 'Quotes' || error.type === 'FieldMismatch')
         )
         .map((error) => `Line ${error.row || 'unknown'}: ${error.message}`)
 
@@ -272,30 +209,30 @@ export function CsvUpload({ onDataLoaded, maxRows = 1000 }: CsvUploadProps) {
       })
 
       if (duplicates.length > 0) {
-        parseErrors.unshift(
+        formattedParseErrors.unshift(
           `Duplicate columns detected: ${duplicates.join(', ')}. These will be renamed with index suffixes.`
         )
       }
 
       // Check for empty headers
       const emptyHeaders = headers.filter(
-        (header, index) => !header || header.trim() === ''
+        (header) => !header || header.trim() === ''
       )
       if (emptyHeaders.length > 0) {
-        parseErrors.unshift(
+        formattedParseErrors.unshift(
           `${emptyHeaders.length} empty column header(s) detected. These columns may not import correctly.`
         )
       }
 
       // Limit parse errors to avoid overwhelming UI
-      if (parseErrors.length > 10) {
-        const hiddenCount = parseErrors.length - 10
-        parseErrors = parseErrors.slice(0, 10)
-        parseErrors.push(`...and ${hiddenCount} more parsing issues`)
+      if (formattedParseErrors.length > 10) {
+        const hiddenCount = formattedParseErrors.length - 10
+        formattedParseErrors = formattedParseErrors.slice(0, 10)
+        formattedParseErrors.push(`...and ${hiddenCount} more parsing issues`)
       }
 
       if (data.length > maxRows) {
-        parseErrors.push(
+        formattedParseErrors.push(
           `File contains ${data.length.toLocaleString()} rows, but maximum allowed is ${maxRows.toLocaleString()}`
         )
       }
@@ -339,7 +276,7 @@ export function CsvUpload({ onDataLoaded, maxRows = 1000 }: CsvUploadProps) {
         }
       }
 
-      const allErrors = [...parseErrors, ...estimatedValidationErrors]
+      const allErrors = [...formattedParseErrors, ...estimatedValidationErrors]
 
       const csvData: CsvData = {
         data: processedData.slice(0, maxRows),
@@ -359,6 +296,94 @@ export function CsvUpload({ onDataLoaded, maxRows = 1000 }: CsvUploadProps) {
       setTimeout(() => setIsUploading(false), 300) // Small delay to show 100%
     },
     [maxRows, onDataLoaded]
+  )
+
+  const processFile = useCallback(
+    (file: File) => {
+      if (!file || file.size === 0) {
+        setErrors(['Please select a valid CSV file'])
+        return
+      }
+
+      console.log(
+        'Processing file:',
+        file.name,
+        'Size:',
+        file.size,
+        'Type:',
+        file.type
+      )
+
+      setIsUploading(true)
+      setUploadProgress(0)
+      setFileName(file.name)
+      setErrors([])
+
+      // Progress simulation
+      const progressInterval = setInterval(() => {
+        setUploadProgress((prev) => {
+          if (prev < 90) return prev + 10
+          return prev
+        })
+      }, 100)
+
+      try {
+        Papa.parse(file, {
+          header: true,
+          skipEmptyLines: true,
+          transformHeader: (header: string) => header.trim(),
+          transform: (value: string) => value?.trim() || '',
+          encoding: 'UTF-8',
+          dynamicTyping: false,
+          complete: (results: PapaParseResult) => {
+            clearInterval(progressInterval)
+            console.log('Papa Parse Results:', {
+              data: results.data?.length || 0,
+              headers: results.meta?.fields || [],
+              errors: results.errors?.length || 0,
+            })
+
+            if (!results.data || results.data.length === 0) {
+              setErrors([
+                'No data found in CSV file. Please check the file format and ensure it contains data rows.',
+              ])
+              setIsUploading(false)
+              return
+            }
+
+            if (!results.meta?.fields || results.meta.fields.length === 0) {
+              setErrors([
+                'No column headers found in CSV file. Please ensure the first row contains column headers.',
+              ])
+              setIsUploading(false)
+              return
+            }
+
+            processResults(
+              results.data,
+              results.meta.fields,
+              results.errors || []
+            )
+          },
+          error: (error: Error) => {
+            clearInterval(progressInterval)
+            console.error('Papa Parse Error:', error)
+            setErrors([
+              `Failed to parse CSV: ${error.message}. Please check file format and encoding.`,
+            ])
+            setIsUploading(false)
+          },
+        })
+      } catch (error) {
+        clearInterval(progressInterval)
+        console.error('Unexpected error:', error)
+        setErrors([
+          `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        ])
+        setIsUploading(false)
+      }
+    },
+    [processResults]
   )
 
   const handleDragOver = useCallback((e: React.DragEvent) => {

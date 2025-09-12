@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 const navigationItems = [
   { to: '/', label: 'Dashboard' },
   { to: '/import', label: 'Import' },
+  { to: '/leads', label: 'Leads' },
   { to: '/export', label: 'Export' },
 ]
 

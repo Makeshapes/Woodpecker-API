@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { CsvUpload } from '@/components/csv-upload/CsvUpload'
 import { CsvPreview } from '@/components/csv-upload/CsvPreview'
 import { Button } from '@/components/ui/button'
@@ -16,6 +17,7 @@ interface ColumnMapping {
 }
 
 export function Import() {
+  const navigate = useNavigate()
   const [csvData, setCsvData] = useState<CsvData | null>(null)
   const [columnMapping, setColumnMapping] = useState<ColumnMapping>({})
   const [showPreview, setShowPreview] = useState(false)
@@ -27,26 +29,13 @@ export function Import() {
   }
 
   const handleConfirm = (data: CsvData, mapping: ColumnMapping) => {
-    // TODO: Implement actual data import to backend
-    // Note: All original data is preserved, mapping is used for standardization
-    const importPayload = {
-      rawData: data.data, // All original columns preserved
-      columnMapping: mapping, // Standard field mappings for processing
-      metadata: {
-        totalRows: data.rowCount,
-        headers: data.headers,
-        importedRows: data.data.length,
-        timestamp: new Date().toISOString(),
+    // Navigate to leads page with data
+    navigate('/leads', {
+      state: {
+        csvData: data,
+        columnMapping: mapping,
       },
-    }
-
-    console.log('Importing data with full preservation:', importPayload)
-
-    // For now, just show success and reset
-    alert(
-      `Successfully imported ${data.data.length} leads with ${data.headers.length} columns preserved!`
-    )
-    handleCancel()
+    })
   }
 
   const handleCancel = () => {

@@ -3,6 +3,7 @@ import { ThemeProvider } from './components/theme-provider'
 import { Layout } from './components/layout/Layout'
 import { Dashboard } from './pages/Dashboard'
 import { Import } from './pages/Import'
+import { Leads } from './pages/Leads'
 import { Export } from './pages/Export'
 
 function App() {
@@ -13,6 +14,7 @@ function App() {
           <Route path="/" element={<Layout />}>
             <Route index element={<Dashboard />} />
             <Route path="import" element={<Import />} />
+            <Route path="leads" element={<Leads />} />
             <Route path="export" element={<Export />} />
           </Route>
         </Routes>
