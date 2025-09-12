@@ -37,7 +37,8 @@ export function CsvPreview({ csvData, columnMapping, onConfirm, onCancel }: CsvP
     return headers.map(header => ({
       original: header,
       mapped: columnMapping[header] || 'unmapped',
-      isMapped: !!columnMapping[header]
+      isMapped: !!columnMapping[header],
+      isStandardField: !!columnMapping[header]
     }))
   }, [headers, columnMapping])
   
@@ -79,18 +80,21 @@ export function CsvPreview({ csvData, columnMapping, onConfirm, onCancel }: CsvP
         <div className="space-y-2">
           <h4 className="text-sm font-medium">Column Mapping</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-xs">
-            {mappedHeaders.map(({ original, mapped, isMapped }) => (
+            {mappedHeaders.map(({ original, mapped, isMapped, isStandardField }) => (
               <div key={original} className="flex items-center gap-2 p-2 bg-muted/50 rounded">
                 <span className="font-mono truncate max-w-20" title={original}>
                   {original}
                 </span>
                 <ArrowRight className="w-3 h-3 text-muted-foreground" />
-                <span className={`font-medium ${isMapped ? 'text-primary' : 'text-muted-foreground'}`}>
-                  {mapped}
+                <span className={`font-medium ${isStandardField ? 'text-primary' : 'text-muted-foreground'}`}>
+                  {isStandardField ? mapped : 'preserved'}
                 </span>
               </div>
             ))}
           </div>
+          <p className="text-xs text-muted-foreground">
+            Standard fields are mapped for validation. All columns will be preserved in the imported data.
+          </p>
         </div>
 
         {/* Required Fields Status */}
@@ -105,7 +109,7 @@ export function CsvPreview({ csvData, columnMapping, onConfirm, onCancel }: CsvP
                   variant={isMapped ? "default" : "destructive"}
                   className={isMapped ? "bg-green-100 text-green-800 border-green-200" : ""}
                 >
-                  {isMapped ? <CheckCircle2 className="w-3 h-3 mr-1" /> : <AlertCircle className="w-3 h-3 mr-1" />}
+                  {isMapped ? <CheckCircle2 className="w-3 h-3 mr-1" data-testid="check-icon" /> : <AlertCircle className="w-3 h-3 mr-1" data-testid="alert-icon" />}
                   {field}
                 </Badge>
               )
