@@ -197,7 +197,22 @@ export function LeadDetail({
                       {field.replace('_', ' ')}
                     </label>
                     <div className="text-sm border rounded p-2 bg-muted/50">
-                      {value || '-'}
+                      {field === 'linkedin' && value ? (
+                        <a
+                          href={
+                            value.startsWith('http')
+                              ? value
+                              : `https://${value}`
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 underline break-all inline-block max-w-full"
+                        >
+                          {value}
+                        </a>
+                      ) : (
+                        value || '-'
+                      )}
                     </div>
                   </div>
                 ))}

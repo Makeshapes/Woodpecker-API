@@ -3,6 +3,7 @@ import type { ClaudeResponse } from './claudeService'
 import { TemplateService, templateService } from './templateService'
 import type { LeadData } from './templateService'
 import { FallbackDataService, fallbackDataService } from './fallbackDataService'
+import { TemplateBasedGenerationService, templateBasedGenerationService } from './templateBasedGenerationService'
 
 export interface ContentGenerationRequest {
   leadData: LeadData
@@ -25,76 +26,147 @@ export interface GenerationProgress {
   results: Map<string, ContentGenerationResult>
 }
 
+export type GenerationMode = 'claude' | 'templates' | 'fallback'
+
 export class ContentGenerationService {
   private claudeService: ClaudeService
   private templateService: TemplateService
   private fallbackService: FallbackDataService
+  private templateBasedService: TemplateBasedGenerationService
   private generationQueue: ContentGenerationRequest[] = []
   private isProcessing = false
   private progressMap = new Map<string, GenerationProgress>()
   private useFallback = import.meta.env.VITE_ENABLE_DEBUG === 'true'
+  private generationMode: GenerationMode = 'claude' // Default to Claude API
 
   constructor() {
     this.claudeService = createClaudeService()
     this.templateService = templateService
     this.fallbackService = fallbackDataService
+    this.templateBasedService = templateBasedGenerationService
   }
 
   // Generate content for a single lead
   async generateForLead(
     leadData: LeadData,
-    templateName: string = 'email-sequence'
+    templateName: string = 'email-sequence',
+    modelId?: string
   ): Promise<ContentGenerationResult> {
     const leadId = this.generateLeadId(leadData)
+    
+    console.log('🎯 [ContentGenerationService] Starting generation for lead:', leadId)
+    console.log('📊 [ContentGenerationService] Template:', templateName, 'Model:', modelId || 'default')
+    console.log('🔑 [ContentGenerationService] Has Claude Service:', !!this.claudeService)
+    console.log('🆕 [ContentGenerationService] Use Fallback mode:', this.useFallback)
+    console.log('🛠️ [ContentGenerationService] Debug env var:', import.meta.env.VITE_ENABLE_DEBUG)
+    console.log('🔒 [ContentGenerationService] Fallback will be used if API fails:', this.useFallback)
+    console.log('🎨 [ContentGenerationService] Current generation mode:', this.generationMode)
+    console.log('👤 [ContentGenerationService] Lead data:', {
+      email: leadData.email,
+      name: `${leadData.first_name} ${leadData.last_name}`,
+      company: leadData.company,
+      title: leadData.title,
+      industry: leadData.industry,
+      hasCustomPrompt: !!(leadData as LeadData & { custom_prompt?: string }).custom_prompt
+    })
 
     try {
       // Validate lead data
+      console.log('🔍 [ContentGenerationService] Validating lead data...')
       this.templateService.validateLeadData(leadData, templateName)
 
       let content: ClaudeResponse
 
-      // Use fallback service in development/debug mode or when Claude API fails
-      if (this.useFallback) {
+      // Handle different generation modes
+      if (this.generationMode === 'templates') {
+        console.log('📋 [ContentGenerationService] Using template-based generation mode')
+        // Simulate some processing time for realistic UX
+        await new Promise((resolve) =>
+          setTimeout(resolve, Math.random() * 1000 + 300)
+        )
+
+        content = this.templateBasedService.generateTemplateBasedContent(leadData)
+        console.log('📝 [ContentGenerationService] Generated template-based content')
+      } else if (this.generationMode === 'fallback' || this.useFallback) {
+        console.log('🆕 [ContentGenerationService] Using fallback mode (useFallback = true)')
         // Simulate API delay for realistic testing
         await new Promise((resolve) =>
           setTimeout(resolve, Math.random() * 2000 + 500)
         )
 
         content = this.fallbackService.generateFallbackContent(leadData)
+        console.log('🎲 [ContentGenerationService] Generated fallback content')
       } else {
         try {
           // Generate prompt
+          console.log('📃 [ContentGenerationService] Generating prompt from template...')
           const prompt = this.templateService.generatePrompt(
             leadData,
             templateName
           )
+          console.log('📄 [ContentGenerationService] Prompt length:', prompt.length, 'characters')
+          console.log('📝 [ContentGenerationService] Prompt preview (first 500 chars):', prompt.substring(0, 500) + '...')
 
           // Generate content using Claude
+          console.log('🚀 [ContentGenerationService] Calling Claude API with retry...')
+          console.log('⚙️ [ContentGenerationService] API Config:', {
+            modelId: modelId || 'default',
+            maxRetries: 3,
+            requestCount: this.claudeService.getRequestCount(),
+            remainingRequests: this.claudeService.getRemainingRequests()
+          })
+          
           content = await this.claudeService.generateContentWithRetry(
             prompt,
-            leadData as unknown as Record<string, unknown>
+            leadData as unknown as Record<string, unknown>,
+            3,
+            modelId
           )
+          console.log('✅ [ContentGenerationService] Claude API returned content successfully')
+          console.log('📦 [ContentGenerationService] Content keys:', Object.keys(content))
+          console.log('📧 [ContentGenerationService] Generated snippets:', {
+            snippet1Length: content.snippet1?.length || 0,
+            snippet2Length: content.snippet2?.length || 0,
+            snippet3Length: content.snippet3?.length || 0,
+            hasAllSnippets: !!(content.snippet1 && content.snippet2 && content.snippet3 && content.snippet4 && content.snippet5 && content.snippet6 && content.snippet7)
+          })
 
           // Validate generated content
+          console.log('🔍 [ContentGenerationService] Validating generated content...')
           if (
             !this.templateService.validateGeneratedContent(
               content,
               templateName
             )
           ) {
+            console.error('❌ [ContentGenerationService] Content validation failed')
             throw new Error(
               'Generated content does not meet validation criteria'
             )
           }
+          console.log('✔️ [ContentGenerationService] Content validation passed')
         } catch (error) {
-          // Fall back to mock data if Claude API fails
-          console.warn('Claude API failed, falling back to mock data:', error)
-          content = this.fallbackService.generateFallbackContent(leadData)
+          console.error('❌ [ContentGenerationService] Claude API failed:', error)
+          
+          // Only fall back to mock data if explicitly in debug mode
+          if (this.useFallback) {
+            console.warn('⚠️ [ContentGenerationService] Using fallback due to debug mode being enabled')
+            content = this.fallbackService.generateFallbackContent(leadData)
+            console.log('🆕 [ContentGenerationService] Using fallback content due to error')
+          } else {
+            // In production mode, throw the error instead of silently falling back
+            console.error('🚫 [ContentGenerationService] Not falling back - throwing error to user')
+            throw error
+          }
         }
       }
 
       // Store in localStorage
+      console.log('💾 [ContentGenerationService] Persisting content to localStorage')
       this.persistContentToStorage(leadId, content)
+      
+      console.log('🎉 [ContentGenerationService] Successfully generated content for lead:', leadId)
+      console.log('📦 [ContentGenerationService] Returning content with', Object.keys(content).length, 'fields')
 
       return {
         leadId,
@@ -105,6 +177,9 @@ export class ContentGenerationService {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error occurred'
+      
+      console.error('🔥 [ContentGenerationService] Generation failed:', errorMessage)
+      console.error('💥 [ContentGenerationService] Full error:', error)
 
       return {
         leadId,
@@ -338,6 +413,26 @@ export class ContentGenerationService {
   // Get available fallback examples
   getFallbackExamples() {
     return this.fallbackService.getAllExamples()
+  }
+
+  // Generation mode management
+  setGenerationMode(mode: GenerationMode): void {
+    console.log(`🔄 [ContentGenerationService] Switching generation mode from ${this.generationMode} to ${mode}`)
+    this.generationMode = mode
+  }
+
+  getGenerationMode(): GenerationMode {
+    return this.generationMode
+  }
+
+  // Get available template configs
+  getAvailableTemplates() {
+    return this.templateBasedService.getAvailableTemplates()
+  }
+
+  // Get a specific template config
+  getTemplateConfig(name: string) {
+    return this.templateBasedService.getTemplate(name)
   }
 }
 

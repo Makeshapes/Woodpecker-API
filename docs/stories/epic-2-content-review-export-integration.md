@@ -2,7 +2,7 @@
 
 ## Epic Goal
 
-Complete the end-to-end user workflow by building the content review interface with inline editing capabilities, implementing direct Woodpecker API integration for adding prospects to existing campaigns, and establishing session-based prompt template management. This epic delivers a fully functional MVP that transforms the manual email personalization process into an automated workflow.
+Complete the end-to-end user workflow by mplementing direct Woodpecker API integration for adding prospects to existing campaigns. This epic delivers a fully functional MVP that transforms the manual email personalization process into an automated workflow.
 
 ## Epic Description
 
@@ -10,20 +10,19 @@ Complete the end-to-end user workflow by building the content review interface w
 
 - **Project Type:** Continuation of greenfield Woodpecker-API tool
 - **Technology Stack:** React + TypeScript frontend with direct API integrations
-- **Integration Points:** Woodpecker API (direct frontend integration), enhanced Claude AI integration
+- **Integration Points:** Woodpecker API (direct frontend integration)
 
 **Epic Details:**
 
-- **What's being created:** Content review interface, Woodpecker API integration, and template management system
+- **What's being created:** Woodpecker API integration and template management system
 - **How it integrates:** Builds on Epic 1 foundation, adds export capabilities and content editing workflow
 - **Success criteria:** Complete workflow from lead import → AI generation → content review → Woodpecker export
 
 ## Stories
 
-1. **Story 2.1:** Content Review & Editing Interface - Split-pane interface for reviewing and editing AI-generated content
-2. **Story 2.2:** Woodpecker API Integration & Campaign Management - Direct integration to add prospects to existing campaigns
-3. **Story 2.3:** Session-Based Prompt Template Management - Customizable AI prompt templates for different campaigns
-4. **Story 2.4:** End-to-End Workflow Integration & Testing - Complete workflow validation and performance optimization
+2. **Story 2.1:** Woodpecker API Integration & Campaign Management - Direct integration to add prospects to existing campaigns
+3. **Story 2.2:** Session-Based Prompt Template Management - Customizable AI prompt templates for different campaigns
+4. **Story 2.3:** End-to-End Workflow Integration & Testing - Complete workflow validation and performance optimization
 
 ## Compatibility Requirements
 
@@ -31,7 +30,6 @@ Complete the end-to-end user workflow by building the content review interface w
 - [ ] Woodpecker API format compliance maintained
 - [ ] State management preserves data integrity across workflow steps
 - [ ] UI components follow established ShadCN patterns
-- [ ] Performance maintained with 50+ lead batches
 
 ## Risk Mitigation
 

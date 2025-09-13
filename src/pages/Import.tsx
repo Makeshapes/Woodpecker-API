@@ -30,7 +30,7 @@ export function Import() {
 
   const handleConfirm = (data: CsvData, mapping: ColumnMapping) => {
     // Navigate to leads page with data
-    navigate('/leads', {
+    navigate('/', {
       state: {
         csvData: data,
         columnMapping: mapping,

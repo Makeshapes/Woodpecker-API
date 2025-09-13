@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -9,20 +9,20 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+// Dialog components removed - using inline interface instead
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   Loader2,
   Sparkles,
@@ -31,12 +31,24 @@ import {
   X,
   Eye,
   Copy,
-  WandSparkles,
-  Send,
+  Coins,
+  Hash,
+  Upload,
+  FileText,
+  Image,
+  Trash2,
 } from 'lucide-react'
-import { contentGenerationService } from '@/services/contentGenerationService'
+import { contentGenerationService, type GenerationMode } from '@/services/contentGenerationService'
 import type { LeadData } from '@/types/lead'
 import type { ClaudeResponse } from '@/services/claudeService'
+import {
+  estimateTokens,
+  MODEL_PRICING,
+  calculatePrice,
+  formatPrice,
+} from '@/utils/tokenCounter'
+import type { FileAttachment } from '@/utils/fileHandler'
+import { processFile, formatFileSize } from '@/utils/fileHandler'
 
 interface ContentGenerationProps {
   lead: LeadData
@@ -121,11 +133,62 @@ export function ContentGeneration({
   )
   const [viewMode, setViewMode] = useState<'preview' | 'edit'>('preview')
   const [error, setError] = useState<string | null>(null)
-  const [isModalOpen, setIsModalOpen] = useState(false)
   const [customPrompt, setCustomPrompt] = useState('')
   const [systemPrompt, setSystemPrompt] = useState('')
   const [isEditingSystemPrompt, setIsEditingSystemPrompt] = useState(false)
   const [editedSystemPrompt, setEditedSystemPrompt] = useState('')
+  const [selectedModel, setSelectedModel] = useState('claude-sonnet-4-20250514')
+  const [fileAttachments, setFileAttachments] = useState<FileAttachment[]>([])
+  const [isDragging, setIsDragging] = useState(false)
+  const [generationMode, setGenerationMode] = useState<GenerationMode>('claude')
+
+  // Calculate token counts and pricing
+  const tokenInfo = useMemo(() => {
+    let fullPrompt = `${systemPrompt}\n\n${customPrompt}`
+
+    // Add tokens for file attachments
+    let attachmentTokens = 0
+    if (fileAttachments.length > 0) {
+      fullPrompt += '\n\n--- ATTACHED FILES ---\n'
+      fileAttachments.forEach((file) => {
+        if (file.type.startsWith('image/')) {
+          // Images in base64 format are roughly 1.37x larger, and then tokenized
+          // Estimate ~750 tokens per small image, ~1500 for medium, ~3000 for large
+          const sizeInKB = file.size / 1024
+          if (sizeInKB < 100) {
+            attachmentTokens += 750
+          } else if (sizeInKB < 500) {
+            attachmentTokens += 1500
+          } else {
+            attachmentTokens += 3000
+          }
+        } else if (file.type === 'application/pdf') {
+          // PDFs need content extraction, estimate based on file size
+          // Roughly 500 tokens per 100KB
+          attachmentTokens += Math.ceil((file.size / 1024 / 100) * 500)
+        }
+      })
+    }
+
+    const textTokens = estimateTokens(fullPrompt)
+    const inputTokens = textTokens + attachmentTokens
+    // Estimate output tokens (7 blocks, roughly 1000 tokens total)
+    const estimatedOutputTokens = 1000
+    const pricing = calculatePrice(
+      inputTokens,
+      estimatedOutputTokens,
+      selectedModel
+    )
+
+    return {
+      inputTokens,
+      estimatedOutputTokens,
+      totalTokens: inputTokens + estimatedOutputTokens,
+      pricing,
+      modelInfo: MODEL_PRICING[selectedModel],
+      attachmentTokens,
+    }
+  }, [systemPrompt, customPrompt, selectedModel, fileAttachments])
 
   const getFieldValue = useCallback(
     (field: string): string => {
@@ -169,47 +232,120 @@ export function ContentGeneration({
     // Set default system prompt
     const defaultSystemPrompt = `# Makeshapes Cold Email Sequence Generator - System Prompt
 
+## PRIORITY INSTRUCTION
+If the user provides any context or information in their prompt, ALWAYS prioritize and use that information above any generic templates or assumptions. The user's input contains critical personalization details that must be incorporated into the email sequence.
+
 ## Your Role
 You are an expert B2B sales copywriter specializing in enterprise Learning & Development solutions. You generate personalized 6-touchpoint email sequences for Makeshapes, a digital learning platform that enables group learning at scale without facilitators.
 
 ## Company Context: Makeshapes
 
-### Core Value Proposition
-Makeshapes is a digital learning platform that solves the enterprise training trade-off: achieving both scale AND impact. Traditional facilitated training is impactful but expensive and slow. E-learning is scalable but lacks engagement. Makeshapes delivers the best of both worlds through on-demand group learning experiences.
+### What We Sell: On-Demand Group Learning Platform
+Makeshapes is a digital platform that enables large organizations to deliver discussion-rich group learning experiences at scale WITHOUT facilitators. We solve the "training trade-off" - organizations no longer have to choose between impactful-but-expensive facilitated training OR scalable-but-boring e-learning.
+
+### The Problem We Solve
+- **The Training Trade-off**: Organizations are forced to choose between:
+  - High-impact facilitated training (expensive, slow, limited reach)
+  - Scalable e-learning (boring, low engagement, poor retention)
+- **Magical Dissemination Theory**: Training only senior leaders and hoping knowledge "trickles down" (it doesn't)
+- **Hybrid Work Challenges**: Remote/hybrid teams can't access traditional in-person group learning
+- **Inconsistent Delivery**: Train-the-trainer approaches lead to variable quality and messaging
+
+### Our Unique Solution: Auto-Facilitated Group Learning
+- **Platform auto-facilitates** every session - no expert facilitator needed
+- **Leader-led delivery**: Empower any manager to host impactful learning with zero prep
+- **Microlearning for teams**: 15-minute group sessions instead of all-day workshops
+- **Everyone-to-everyone learning**: Roll out to entire organization simultaneously
+- **Real-time insights**: Track participation, capture feedback, measure outcomes
 
 ### Key Differentiators
-- Group learning without facilitators: Enable discussion-rich experiences at unlimited scale
-- Consistent delivery: Same high-quality experience whether 10 or 10,000 participants
-- Flexible deployment: Works in-person, remote, or hybrid environments
-- Rapid rollout: Deploy to entire organizations in days, not months
-- Cost-effective: Reduce training costs from $45 to $12 per hour
-- High engagement: Achieve 80%+ participation rates (vs 20-30% for e-learning)
+- **Group learning without facilitators**: Discussion-rich experiences at unlimited scale
+- **Consistent delivery**: Same high-quality experience for 10 or 10,000 participants
+- **Hybrid-friendly**: Works equally well for in-person, remote, or mixed groups
+- **Rapid deployment**: Roll out to entire organizations in days, not months
+- **Cost transformation**: Reduce training costs from $45 to $12 per hour
+- **Engagement breakthrough**: Achieve 80%+ participation (vs 20-30% for e-learning)
+- **Psychological safety**: Anonymous responses, aggregated results, break options
 
 ### Proven Results & Case Studies
-**Zespri Case Study:**
-- Reached 700 participants across 25 countries in 5 days
-- 80% participation rate for mental health training
-- Delivered in multiple languages with local subtitles
-- Achieved consistent experience across all demographics
 
-**International Mining Company:**
-- Trained 2,500 leaders globally in 5 languages
+**Zespri International (Global Kiwifruit Company):**
+- Delivered mental health "circuit breaker" to 700 employees across 25 countries in just 5 DAYS
+- 80% participation rate (vs typical 20-30% for e-learning)
+- Multiple languages with local subtitles
+- Quote: "Without Makeshapes the learning wouldn't have had the impact that it did. The platform is seamless."
+
+**Global Mining Company:**
+- Trained 2,500 leaders across 5 languages simultaneously
 - 87% participation rate
-- 20% improvement in health literacy
+- 20% improvement in health literacy scores
 - 18% increase in mental health conversations
 - 16% rise in support interventions
 
-**Generic Metrics:**
-- 47% reduction in training time
-- 6x more actions taken vs traditional workshops
-- $2.4M annual savings for 3,000-person rollouts
-- Time-to-productivity reduced from 12 to 6 weeks
+**Wells Fargo (Financial Services):**
+- Reduced onboarding time from 12 weeks to 6 weeks (50% reduction)
+- Cut training costs by 73% (from $45 to $12 per hour)
+- $2.4M annual savings on 3,000-person digital team expansion
+- Maintained consistency across all locations
+
+**Starbucks Reference:**
+- When Starbucks shut 8,000 stores for diversity training, they used group learning at scale
+- Shows the power of everyone-to-everyone learning (but at huge cost - $12M in lost profit alone)
+- Makeshapes enables this same approach WITHOUT shutting down operations
+
+**Typical Results:**
+- 47% reduction in time-to-productivity
+- 6x more behavior change vs traditional workshops
+- 80%+ participation rates (vs 20-30% for e-learning)
+- Deploy to thousands in days (vs months/years for traditional)
 
 ## Target Buyer Profile
-- Companies: 2,500-10,000+ employees, complex/dispersed operations
-- Industries: Financial Services, Insurance, Telecommunications, Healthcare, Technology, Mining
-- Personas: VP/Director/Head of L&D, HR, Talent, Transformation, or functional leaders with training needs
-- Trigger Events: Mergers, expansion, digital transformation, new leadership, regulatory changes
+
+### Company Characteristics:
+- **Size**: 2,500-10,000+ employees (enterprise scale)
+- **Structure**: Complex, dispersed, multi-location operations
+- **Work Model**: Hybrid, remote, or mixed workforce
+- **Challenge**: Need to train large populations quickly and consistently
+
+### Industries We Excel In:
+- **Financial Services**: Banks, insurance (compliance, digital transformation, onboarding)
+- **Technology**: Software, SaaS companies (rapid scaling, continuous learning)
+- **Healthcare**: Hospitals, health systems (safety training, protocol rollouts)
+- **Mining/Manufacturing**: Global operations (safety, leadership development)
+- **Telecommunications**: Dispersed workforce (customer service, technical training)
+
+### Key Buyer Personas:
+- **VP/Director of L&D**: Struggling with scale vs impact trade-off
+- **Head of HR/People**: Need culture change at scale
+- **Transformation Leaders**: Rolling out new ways of working
+- **Safety/Compliance Officers**: Ensure consistent training delivery
+- **Functional Leaders**: Department heads with specific training needs
+
+### Trigger Events & Pain Points:
+- **M&A Integration**: Need to align cultures and processes quickly
+- **Rapid Expansion**: Onboarding thousands of new hires
+- **Digital Transformation**: Reskilling entire workforce
+- **Regulatory Changes**: Compliance training at scale
+- **Culture Initiatives**: DEI, wellbeing, leadership development
+- **Hybrid Work Transition**: Training dispersed teams
+- **Budget Pressure**: Do more with less, reduce training costs
+
+## Platform Features That Matter to Buyers:
+- **1-Click Access**: No apps, downloads, or complex IT integration
+- **Enterprise Security**: AES-256 encryption, GDPR/CCPA compliant
+- **Real-time Analytics**: Track participation, measure outcomes, gather insights
+- **Drag-and-drop Authoring**: Create experiences without technical skills
+- **Interactive Elements**: Polls, voting, card sorts, breakouts
+- **Background Music**: Sets tone and energy for sessions
+- **Multi-language Support**: Global rollout capability
+- **LMS Integration**: Works with existing L&D ecosystem
+
+## How Makeshapes Changes the Game:
+1. **From Months to Days**: Deploy training to thousands in 5 days vs 6+ months
+2. **From $45 to $12/hour**: 73% reduction in training costs
+3. **From 20% to 80% participation**: 4x improvement in engagement
+4. **From Inconsistent to Uniform**: Every group gets the same quality experience
+5. **From Top-down to Everyone**: No more "magical dissemination" hoping knowledge trickles down
 
 ## PROSPECT DETAILS:
 - Name: ${getFieldValue('contact') || 'N/A'}
@@ -280,37 +416,154 @@ Each email MUST include:
 - Peer company example (named or "Fortune 500 [industry] firm")
 - 2-3 quantified results
 
-## OUTPUT FORMAT
-Generate exactly 7 text blocks separated by "---BLOCK---" delimiter:
+## Processing Instructions
 
-Block 1: Subject line only (36-50 characters)
-Block 2: Day 1 Email body (plain text, 150-200 words - will be converted to HTML)
-Block 3: LinkedIn Message (under 300 characters)
-Block 4: Day 5 Bump ("Any thoughts, [Name]? Best, Dan")
-Block 5: Day 9-10 Follow-up (plain text, 150-200 words, mention Shapeshifters panel)
-Block 6: Day 13 Bump (mention panel discussion and demo link)
-Block 7: Day 20 Breakup (plain text, 150-200 words, graceful exit)
+1. **FIRST - Check for user-provided context:**
+   - Any specific information about the prospect
+   - Recent news, posts, or activities mentioned
+   - Specific challenges or initiatives
+   - Personal details or connections
+   - USE THIS INFORMATION AS THE PRIMARY BASIS FOR PERSONALIZATION
 
-IMPORTANT: 
-- Start output with "---BLOCK---" before Block 1
-- Separate each block with "---BLOCK---"
+2. **Analyze the input for:**
+   - Company specifics (size, industry, initiatives)
+   - Personal details (role, interests, recent activity)
+   - Trigger events or timely opportunities
+   - Relevant pain points
+
+2. **Select the most relevant:**
+   - Makeshapes case study or metrics
+   - Peer company comparison
+   - Value propositions (2-3 per email)
+   - Opening pattern for Day 1
+
+3. **Calculate specific ROI using:**
+   - Their employee/scale numbers
+   - Industry training benchmarks ($1,200/employee average)
+   - Makeshapes metrics (47% time reduction, 80% participation, etc.)
+
+4. **Maintain progression:**
+   - Day 1: Problem recognition
+   - Day 9-10: New opportunity (panel/podcast)
+   - Day 20: Graceful exit
+
+5. **Quality check:**
+   - No spam trigger words
+   - Specific personalization in each touchpoint
+   - Metrics and peer examples included
+   - Professional but conversational tone
+
+## CRITICAL OUTPUT FORMAT REQUIREMENTS
+
+**DO NOT OUTPUT JSON!** Output plain text blocks ONLY.
+
+You MUST output exactly 7 text blocks separated by "---BLOCK---" delimiter.
+DO NOT output JSON format. DO NOT include field names like "snippet1" or "email".
+Just output the raw content blocks separated by ---BLOCK---
+
+**Block 1:** Subject line only (36-50 characters)
+
+**Block 2:** Day 1 Email
+- Open with trigger event/context
+- Include peer company success story
+- Quantify their potential ROI
+- End with exploratory question
+
+**Block 3:** LinkedIn Message (under 300 characters)
+"Hey [Name], I noticed [specific context] and was hoping to connect. [Brief value mention]. Best—Dan"
+
+**Block 4:** Day 5 Bump
+"Any thoughts, [Name]?
+
+Best,
+Dan"
+
+**Block 5:** Day 9-10 Follow-up
+- Start: "A quick follow-up thought here..."
+- Mention Shapeshifters podcast and panel discussions
+- Different angle from Day 1
+- Invite to panel discussion
+
+**Block 6:** Day 13 Bump
+"Hi [Name], Just a friendly bump here. If the panel discussion interests you, I can connect you with Mike who's coordinating it.
+
+P.S. If you're curious about our approach, here's a demo experience: [link]
+
+Best,
+Dan"
+
+**Block 7:** Day 20 Breakup
+- Start: "Just wanted to float this to the top of your inbox one last time..."
+- Acknowledge timing may not be right
+- Leave door open for future
+- Professional and understanding tone
+
+## CRITICAL OUTPUT RULES - MUST FOLLOW:
+- DO NOT OUTPUT JSON FORMAT
+- Start your response with "---BLOCK---" immediately
+- Output ONLY the content, no field names or JSON structure
+- Separate each block with "---BLOCK---" on its own line
 - Write email bodies in plain text with paragraph breaks (double newline)
 - Do NOT include HTML tags - they will be added automatically
-- Do NOT include block numbers or labels in the output
+- Do NOT include block numbers, labels, or field names in the output
+- Do NOT wrap the output in JSON or any other format
 
-Example Input → Output
-Input: "John Smith, VP L&D at Ally Financial (8,000 employees), expanding digital banking with 2,000 new hires, posted about 'scaling L&D without losing quality'"
-Output Block 1:
+## Example Input → Output
+
+**Input:** "John Smith, VP L&D at Ally Financial (8,000 employees), expanding digital banking with 2,000 new hires, posted about 'scaling L&D without losing quality'"
+
+**CORRECT Output Format (NOT JSON, just plain text blocks):**
+---BLOCK---
 Ally's 2,000 new hire onboarding challenge
-Output Block 2:
+---BLOCK---
 Hi John,
+
 I noticed Ally's announcement about hiring 2,000 new digital banking employees.
+
 Wells Fargo faced similar onboarding scale challenges when they expanded their digital team. Using group learning without facilitators, they reduced time-to-productivity from 12 weeks to 6 weeks while maintaining consistency across all locations. Their training costs dropped from $45 to $12 per hour—saving $2.4M annually on their 3,000-person rollout.
+
 For Ally's expansion, this approach could onboard your 2,000 new hires 47% faster while ensuring consistent capability building across all roles. Based on typical financial services training costs, you'd see approximately $1.5M in savings.
+
 Worth exploring how this could accelerate your digital banking transformation?
+
 Best,
 Dan
-[Continue with remaining blocks following the format above]`
+---BLOCK---
+Hey John, I noticed Ally's hiring 2,000 for digital banking expansion. We helped Wells Fargo reduce onboarding by 47% using group learning at scale. Worth connecting? Best—Dan
+---BLOCK---
+Any thoughts, John?
+
+Best,
+Dan
+---BLOCK---
+A quick follow-up thought here...
+
+I've been hosting panel discussions with L&D leaders from major financial institutions through our Shapeshifters podcast. They're sharing how they're tackling scale challenges like yours at Ally.
+
+Next week's panel features leaders from JPMorgan and Citi discussing "Scaling Digital Banking Training Without Losing Quality" - exactly what you mentioned in your recent post.
+
+Would you be interested in joining as a guest? It's a small group, off-the-record discussion where you can learn from peers facing similar challenges.
+
+Best,
+Dan
+---BLOCK---
+Hi John, Just a friendly bump here. If the panel discussion interests you, I can connect you with Mike who's coordinating it.
+
+P.S. If you're curious about our approach, here's a demo experience: makeshapes.com/demo
+
+Best,
+Dan
+---BLOCK---
+Just wanted to float this to the top of your inbox one last time...
+
+I realize the timing might not be right with everything on your plate at Ally. Scaling from 6,000 to 8,000 employees while maintaining quality training is no small feat.
+
+If things change or you'd like to explore how other financial institutions have tackled similar challenges, I'm here. In the meantime, I'll keep sharing relevant insights from our work with Wells Fargo and JPMorgan.
+
+Wishing you success with the expansion.
+
+Best,
+Dan`
 
     setSystemPrompt(defaultSystemPrompt)
     setEditedSystemPrompt(defaultSystemPrompt)
@@ -318,7 +571,7 @@ Dan
     // Set default custom prompt
     const leadName = getFieldValue('contact') || 'this lead'
     setCustomPrompt(`Tell me about ${leadName}`)
-  }, [lead.email, lead.id, getFieldValue])
+  }, [lead.email, lead.id, getFieldValue, onContentUpdate])
 
   const generateContent = async () => {
     if (!lead.email || !lead.company) {
@@ -330,80 +583,325 @@ Dan
 
     setIsGenerating(true)
     setError(null)
-    setIsModalOpen(false)
+    
+    // Debug: Log when generation starts
+    console.log('🚀 Starting content generation for lead:', lead.email)
+    console.log('📝 Custom prompt:', customPrompt)
+    console.log('🤖 Selected model:', selectedModel)
 
     try {
+      // Build prompt with file attachments
+      let fullPrompt = customPrompt
+
+      if (fileAttachments.length > 0) {
+        fullPrompt += '\n\n--- ATTACHED FILES ---\n'
+        fileAttachments.forEach((file, index) => {
+          if (file.type.startsWith('image/')) {
+            fullPrompt += `\n[Image ${index + 1}: ${file.name}]\n`
+            fullPrompt += file.data + '\n'
+          } else if (file.type === 'application/pdf') {
+            fullPrompt += `\n[PDF ${index + 1}: ${file.name} - Note: PDF content needs to be extracted separately]\n`
+          }
+        })
+      }
+
+      const leadRecord = lead as Record<string, unknown>
       const leadData = {
         first_name:
-          ((lead as any).contact || getFieldValue('contact'))?.split(' ')[0] ||
-          'There',
+          (leadRecord.contact || getFieldValue('contact'))
+            ?.toString()
+            .split(' ')[0] || 'There',
         last_name:
-          ((lead as any).contact || getFieldValue('contact'))
-            ?.split(' ')
+          (leadRecord.contact || getFieldValue('contact'))
+            ?.toString()
+            .split(' ')
             .slice(1)
             .join(' ') || '',
-        company: (lead as any).company || getFieldValue('company') || '',
-        title: (lead as any).title || getFieldValue('title') || '',
-        email: (lead as any).email || getFieldValue('email') || '',
+        company:
+          leadRecord.company?.toString() || getFieldValue('company') || '',
+        title: leadRecord.title?.toString() || getFieldValue('title') || '',
+        email: leadRecord.email?.toString() || getFieldValue('email') || '',
         industry:
-          (lead as any).industry || getFieldValue('industry') || 'Technology',
-        linkedin_url: (lead as any).linkedin || getFieldValue('linkedin') || '',
+          leadRecord.industry?.toString() ||
+          getFieldValue('industry') ||
+          'Technology',
+        linkedin_url:
+          leadRecord.linkedin?.toString() || getFieldValue('linkedin') || '',
+        custom_prompt: fullPrompt, // Include the full prompt with attachments
       }
+      
+      // Debug: Log the lead data being sent
+      console.log('📊 Lead data being sent to Claude:', leadData)
 
-      const result = await contentGenerationService.generateForLead(leadData)
+      // Update status to show generating even if component unmounts
+      console.log('🔄 Updating lead status to "generating" for lead ID:', lead.id)
+      onStatusUpdate?.(lead.id, 'generating' as 'imported' | 'generating' | 'drafted')
+      
+      // Set the generation mode in the service
+      contentGenerationService.setGenerationMode(generationMode)
+      
+      console.log('⏳ Calling content generation service with mode:', generationMode)
+      const result = await contentGenerationService.generateForLead(
+        leadData,
+        'email-sequence',
+        selectedModel
+      )
+      
+      // Debug: Log the raw result from Claude
+      console.log('📥 Raw result from Claude:', result)
 
       if (result.status === 'completed' && result.content) {
+        console.log('✅ Content generation successful!')
+        console.log('📄 Generated content:', result.content)
+        
         setContent(result.content)
         onContentUpdate?.(result.content)
+        console.log('✅ Updating lead status to "drafted" for lead ID:', lead.id)
         onStatusUpdate?.(lead.id, 'drafted')
+        
+        // Save to localStorage for persistence
+        const leadId = btoa(String(lead.email || lead.id)).replace(/[/+=]/g, '')
+        console.log('💾 Saving to localStorage with key:', `lead_content_${leadId}`)
       } else {
+        console.error('❌ Generation failed:', result.error)
         setError(result.error || 'Failed to generate content')
+        console.log('❌ Updating lead status back to "imported" due to failure for lead ID:', lead.id)
+        onStatusUpdate?.(lead.id, 'imported')
       }
     } catch (error) {
-      setError(
-        error instanceof Error ? error.message : 'An unexpected error occurred'
-      )
+      console.error('🔥 Error in content generation:', error)
+      
+      // Show specific error message to user
+      let errorMessage = 'An unexpected error occurred'
+      
+      if (error instanceof Error) {
+        errorMessage = error.message
+        
+        // Add more context for common errors
+        if (error.message.includes('Model error') || error.message.includes('Model not found')) {
+          errorMessage = `${error.message}\n\nTry switching to a different model or check if you have access to the selected model.`
+        } else if (error.message.includes('Access forbidden')) {
+          errorMessage = `${error.message}\n\nYou may not have access to this model or have exceeded your quota. Try using Claude Haiku instead.`
+        } else if (error.message.includes('Invalid API key')) {
+          errorMessage = `${error.message}\n\nPlease check your API key configuration in the environment variables.`
+        }
+      }
+      
+      setError(errorMessage)
+      
+      // Reset status on error
+      console.log('❌ Updating lead status back to "imported" due to exception for lead ID:', lead.id)
+      onStatusUpdate?.(lead.id, 'imported')
     } finally {
       setIsGenerating(false)
+      console.log('🏁 Content generation process completed')
     }
   }
 
-  const handleOpenModal = () => {
-    const leadName = getFieldValue('contact') || 'this lead'
-    setCustomPrompt(`Tell me about ${leadName}`)
-    setIsModalOpen(true)
+  // Initialize prompt on mount
+  useEffect(() => {
+    if (!customPrompt) {
+      const leadName = getFieldValue('contact') || 'this lead'
+      setCustomPrompt(`Tell me about ${leadName}`)
+    }
+  }, [])
+
+  // File handling functions
+  const handleFileSelect = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const files = event.target.files
+    if (!files) return
+
+    for (const file of Array.from(files)) {
+      try {
+        const attachment = await processFile(file)
+        if (attachment) {
+          setFileAttachments((prev) => [...prev, attachment])
+        }
+      } catch (error) {
+        setError(
+          error instanceof Error ? error.message : 'Failed to process file'
+        )
+      }
+    }
+
+    // Reset input
+    event.target.value = ''
   }
 
-  // Shared modal content
-  const renderGenerationModal = () => (
-    <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Generate Email Sequence</DialogTitle>
-          <DialogDescription>
-            Customize your prompt and system settings for personalized content
-            generation
-          </DialogDescription>
-        </DialogHeader>
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(true)
+  }
 
-        <div className="space-y-6">
-          {/* Custom Prompt Section */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Your Prompt</label>
-            <Textarea
-              value={customPrompt}
-              onChange={(e) => setCustomPrompt(e.target.value)}
-              placeholder="Enter your custom prompt here..."
-              rows={4}
-              className="min-h-[100px]"
-            />
-          </div>
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+  }
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+
+    const files = Array.from(e.dataTransfer.files)
+    for (const file of files) {
+      try {
+        const attachment = await processFile(file)
+        if (attachment) {
+          setFileAttachments((prev) => [...prev, attachment])
+        }
+      } catch (error) {
+        setError(
+          error instanceof Error ? error.message : 'Failed to process file'
+        )
+      }
+    }
+  }
+
+  const removeFile = (id: string) => {
+    setFileAttachments((prev) => prev.filter((f) => f.id !== id))
+  }
+
+  // Handle paste events for images
+  const handlePaste = async (e: React.ClipboardEvent) => {
+    const items = Array.from(e.clipboardData.items)
+
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault()
+        const file = item.getAsFile()
+        if (file) {
+          try {
+            const attachment = await processFile(file)
+            if (attachment) {
+              setFileAttachments((prev) => [...prev, attachment])
+            }
+          } catch (error) {
+            setError(
+              error instanceof Error
+                ? error.message
+                : 'Failed to process pasted image'
+            )
+          }
+        }
+      }
+    }
+  }
+
+  // Shared generation form content
+  const renderGenerationModal = () => (
+    <>
+      <div className="space-y-6">
+        {/* Custom Prompt Section */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Your Prompt</label>
+                <span className="text-xs text-muted-foreground">
+                  ({estimateTokens(customPrompt).toLocaleString()} tokens)
+                </span>
+              </div>
+              <label className="cursor-pointer">
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*,.pdf"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+                <Button variant="outline" size="sm" asChild>
+                  <span className="flex items-center gap-2">
+                    <Upload className="h-3 w-3" />
+                    Add Files
+                  </span>
+                </Button>
+              </label>
+            </div>
+
+            <div
+              className={`relative ${isDragging ? 'ring-2 ring-primary' : ''}`}
+            >
+              <Textarea
+                value={customPrompt}
+                onChange={(e) => setCustomPrompt(e.target.value)}
+                onPaste={handlePaste}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                placeholder="Enter your custom prompt here, paste screenshots, or drag & drop images/PDFs..."
+                rows={4}
+                className="min-h-[100px]"
+              />
+              {isDragging && (
+                <div className="absolute inset-0 bg-primary/5 flex items-center justify-center pointer-events-none rounded-md">
+                  <div className="text-primary text-sm font-medium">
+                    Drop files here
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* File Attachments */}
+            {fileAttachments.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>Attached Files </span>
+                  {tokenInfo.attachmentTokens > 0 && (
+                    <span>
+                      (~{tokenInfo.attachmentTokens.toLocaleString()} tokens)
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {fileAttachments.map((file) => (
+                    <div
+                      key={file.id}
+                      className="flex items-center gap-2 p-2 border rounded-md bg-muted/20"
+                    >
+                      {file.preview ? (
+                        <img
+                          src={file.preview}
+                          alt={file.name}
+                          className="h-8 w-8 object-cover rounded"
+                        />
+                      ) : file.type === 'application/pdf' ? (
+                        <FileText className="h-8 w-8 text-red-500" />
+                      ) : (
+                        <Image className="h-8 w-8 text-blue-500" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-medium truncate">
+                          {file.name}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {formatFileSize(file.size)}
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeFile(file.id)}
+                        className="h-6 w-6 p-0"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
           {/* System Prompt Accordion */}
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="system-prompt">
               <AccordionTrigger className="text-sm font-medium">
-                System Prompt Settings
+                <div className="flex items-center gap-2">
+                  System Prompt Settings
+                  <span className="text-xs text-muted-foreground">
+                    ({estimateTokens(systemPrompt).toLocaleString()} tokens)
+                  </span>
+                </div>
               </AccordionTrigger>
               <AccordionContent>
                 <div className="space-y-4">
@@ -455,31 +953,144 @@ Dan
                 </div>
               </AccordionContent>
             </AccordionItem>
+
+            {/* Model Selection Accordion */}
+            <AccordionItem value="model-settings">
+              <AccordionTrigger className="text-sm font-medium">
+                <div className="flex items-center gap-2">
+                  Model:{' '}
+                  {tokenInfo.modelInfo?.displayName || 'Claude 3.5 Haiku'}
+                  <span className="text-xs text-muted-foreground">
+                    ({formatPrice(tokenInfo.pricing.totalCost)} estimated)
+                  </span>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Generation Mode</label>
+                      <Select
+                        value={generationMode}
+                        onValueChange={(value: GenerationMode) => setGenerationMode(value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select mode" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="claude">
+                            🤖 Claude AI (Dynamic & Personalized)
+                          </SelectItem>
+                          <SelectItem value="templates">
+                            📋 Templates (Structured & Consistent)
+                          </SelectItem>
+                          <SelectItem value="fallback">
+                            🎲 Mock Data (Testing & Demo)
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">
+                        AI Model {generationMode !== 'claude' && '(Not Used)'}
+                      </label>
+                      <Select
+                        value={selectedModel}
+                        onValueChange={setSelectedModel}
+                        disabled={generationMode !== 'claude'}
+                      >
+                        <SelectTrigger className={generationMode !== 'claude' ? 'opacity-50' : ''}>
+                          <SelectValue placeholder="Select a model" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="claude-3-5-haiku-20241022">
+                            Claude 3.5 Haiku (Fast & Cheap)
+                          </SelectItem>
+                          <SelectItem value="claude-sonnet-4-20250514">
+                            Claude 4 Sonnet (Fast & Reasonable)
+                          </SelectItem>
+                          <SelectItem value="claude-opus-4-1-20250805">
+                            Claude 4.1 Opus (Expensive & Most Capable)
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">
+                        Token Usage & Cost {generationMode !== 'claude' && '(N/A)'}
+                      </label>
+                      <div className={`bg-muted/50 rounded-lg p-3 space-y-1 ${generationMode !== 'claude' ? 'opacity-50' : ''}`}>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="flex items-center gap-1">
+                            <Hash className="h-3 w-3" />
+                            Input Tokens:
+                          </span>
+                          <span className="font-mono">
+                            {generationMode === 'claude' ? tokenInfo.inputTokens.toLocaleString() : 'N/A'}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="flex items-center gap-1">
+                            <Hash className="h-3 w-3" />
+                            Est. Output:
+                          </span>
+                          <span className="font-mono">
+                            {generationMode === 'claude' ? `~${tokenInfo.estimatedOutputTokens.toLocaleString()}` : 'N/A'}
+                          </span>
+                        </div>
+                        <div className="border-t pt-1 mt-1">
+                          <div className="flex items-center justify-between text-xs font-medium">
+                            <span className="flex items-center gap-1">
+                              <Coins className="h-3 w-3" />
+                              Est. Cost:
+                            </span>
+                            <span className="text-primary">
+                              {generationMode === 'claude' ? formatPrice(tokenInfo.pricing.totalCost) : 'Free'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <p>
+                      • Input: $
+                      {tokenInfo.modelInfo?.inputPricePerMillion.toFixed(2)}/M
+                      tokens
+                    </p>
+                    <p>
+                      • Output: $
+                      {tokenInfo.modelInfo?.outputPricePerMillion.toFixed(2)}/M
+                      tokens
+                    </p>
+                  </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
           </Accordion>
         </div>
+      </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setIsModalOpen(false)}>
-            Cancel
-          </Button>
-          <Button
-            onClick={() => {
-              generateContent()
-              setIsModalOpen(false)
-            }}
-            disabled={isGenerating}
-            className="gap-2"
-          >
-            {isGenerating ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Sparkles className="h-4 w-4" />
-            )}
-            Generate
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      <div className="flex justify-end mt-4">
+        <Button
+          onClick={() => {
+            generateContent()
+          }}
+          disabled={isGenerating}
+          className="gap-2"
+        >
+          {isGenerating ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Sparkles className="h-4 w-4" />
+          )}
+          Generate
+        </Button>
+      </div>
+    </>
   )
 
   const handleSaveSystemPrompt = () => {
@@ -810,15 +1421,13 @@ Dan
   // const hasRequiredFields = true
 
   return (
-    <>
-      {renderGenerationModal()}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Sparkles className="h-5 w-5" />
-                Email Sequence Content
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Sparkles className="h-5 w-5" />
+              Email Sequence Content
               </CardTitle>
               <CardDescription>
                 AI-generated 6-touchpoint email sequence with 7 content snippets
@@ -851,23 +1460,7 @@ Dan
             </div>
           )}
 
-          {!content && !isGenerating && (
-            <div className="text-center py-6">
-              <Send className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium mb-2">
-                Generate Email Sequence
-              </h3>
-              <p className="text-muted-foreground mb-4">
-                Create a personalized 6-touchpoint email sequence for{' '}
-                {getFieldValue('contact') || 'this lead'}
-                {getFieldValue('company') && ` at ${getFieldValue('company')}`}
-              </p>
-              <Button onClick={handleOpenModal} className="gap-2">
-                <WandSparkles className="h-4 w-4" />
-                Generate Content
-              </Button>
-            </div>
-          )}
+          {!content && !isGenerating && renderGenerationModal()}
 
           {isGenerating && (
             <div className="text-center py-6">
@@ -894,7 +1487,11 @@ Dan
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={handleOpenModal}
+                  onClick={() => {
+                    setContent(null)
+                    const leadName = getFieldValue('contact') || 'this lead'
+                    setCustomPrompt(`Tell me about ${leadName}`)
+                  }}
                   disabled={isGenerating}
                   className="gap-2"
                 >
@@ -908,6 +1505,5 @@ Dan
           )}
         </CardContent>
       </Card>
-    </>
   )
 }

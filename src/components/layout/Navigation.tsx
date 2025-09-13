@@ -2,10 +2,8 @@ import { NavLink } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 
 const navigationItems = [
-  { to: '/', label: 'Dashboard' },
+  { to: '/', label: 'Leads' },
   { to: '/import', label: 'Import' },
-  { to: '/leads', label: 'Leads' },
-  { to: '/export', label: 'Export' },
 ]
 
 export function Navigation() {

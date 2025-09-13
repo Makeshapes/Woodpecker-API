@@ -17,9 +17,8 @@ describe('Layout', () => {
 
   it('renders navigation with correct links', () => {
     render(<LayoutWrapper />)
-    expect(screen.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Leads' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Import' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Export' })).toBeInTheDocument()
   })
 
   it('renders main content area', () => {

@@ -38,7 +38,7 @@ export function LeadList({
   columnMapping,
   onLeadSelect,
   onLeadDetail,
-  onStatusUpdate,
+  onStatusUpdate: _onStatusUpdate,
   onDeleteLead,
 }: LeadListProps) {
   const [searchTerm, setSearchTerm] = useState('')

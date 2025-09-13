@@ -124,8 +124,29 @@ export class TemplateService {
       tags: leadData.tags || this.generateTags(leadData),
     }
 
-    // Substitute variables
-    return this.substituteVariables(template.template, enrichedLeadData)
+    // Get the base prompt from template
+    let prompt = this.substituteVariables(template.template, enrichedLeadData)
+    
+    // If there's a custom_prompt, add it as additional context
+    // @ts-expect-error - custom_prompt might not be in LeadData interface
+    if (leadData.custom_prompt && typeof leadData.custom_prompt === 'string' && leadData.custom_prompt.trim()) {
+      const customPrompt = leadData.custom_prompt.trim()
+      console.log('📨 [TemplateService] Custom prompt detected!')
+      console.log('📏 [TemplateService] Custom prompt length:', customPrompt.length, 'characters')
+      console.log('📝 [TemplateService] Custom prompt content:', customPrompt.substring(0, 200) + (customPrompt.length > 200 ? '...' : ''))
+      
+      // Add the custom prompt as high-priority context at the beginning
+      const originalPromptLength = prompt.length
+      prompt = `**IMPORTANT CONTEXT FROM USER:**\n${customPrompt}\n\n**USE THE ABOVE CONTEXT TO PERSONALIZE THE EMAIL SEQUENCE**\n\n${prompt}`
+      
+      console.log('✅ [TemplateService] Custom prompt added to template')
+      console.log('📊 [TemplateService] Prompt length before custom:', originalPromptLength, 'chars')
+      console.log('📊 [TemplateService] Prompt length after custom:', prompt.length, 'chars')
+    } else {
+      console.log('ℹ️ [TemplateService] No custom prompt provided or custom prompt is empty')
+    }
+    
+    return prompt
   }
 
   private generateTags(leadData: LeadData): string {
@@ -171,7 +192,7 @@ export class TemplateService {
   }
 
   validateGeneratedContent(
-    content: any,
+    content: Record<string, unknown>,
     templateName: string = 'email-sequence'
   ): boolean {
     const template = this.getTemplate(templateName)
