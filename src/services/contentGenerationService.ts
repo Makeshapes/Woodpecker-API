@@ -382,6 +382,11 @@ export class ContentGenerationService {
     localStorage.setItem(key, JSON.stringify(data))
   }
 
+  // Clear content for a specific lead
+  clearLeadContent(leadId: string): void {
+    localStorage.removeItem(`lead_content_${leadId}`)
+  }
+
   // Clear all generated content (for testing/reset)
   clearAllContent(): void {
     const keys = Object.keys(localStorage)

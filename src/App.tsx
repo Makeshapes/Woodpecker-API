@@ -3,6 +3,7 @@ import { ThemeProvider } from './components/theme-provider'
 import { Layout } from './components/layout/Layout'
 import { Import } from './pages/Import'
 import { Leads } from './pages/Leads'
+import { Toaster } from '@/components/ui/sonner'
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
           </Route>
         </Routes>
       </Router>
+      <Toaster />
     </ThemeProvider>
   )
 }

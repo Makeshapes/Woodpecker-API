@@ -455,7 +455,6 @@ Respond with valid JSON containing ALL prospect fields plus the 7 snippets.
                 ) : (
                   <Eye className="h-4 w-4 mr-2" />
                 )}
-                {viewMode === 'preview' ? 'Edit Mode' : 'Preview Mode'}
               </Button>
             </div>
           )}

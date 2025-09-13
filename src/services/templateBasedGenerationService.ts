@@ -28,104 +28,116 @@ export class TemplateBasedGenerationService {
     const makeshapesTemplate: TemplateConfig = {
       name: 'makeshapes-outreach',
       description: 'Makeshapes Group Learning Outreach Sequence',
-      footer: `--
-Dan Thompson
-Makeshapes
-Email: dan@makeshapes.com
-Phone: +64 21 123 4567
-Web: www.makeshapes.com
-
-Transform your group learning delivery with auto-facilitated experiences.`,
+      footer: `<table style="border-collapse: collapse !important; font-size: inherit;" role="presentation" border="0" cellspacing="0" cellpadding="0">
+          <tbody>
+            <tr>
+              <td style="padding: 0 12px 0 0; line-height: 0px;">
+                <img class="photo photo-size" style="border: 0px; height: 72px; line-height: 100%; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; min-width: 72px; width: 72px;" src="https://media-public.makeshapes.com/Email+images/Dan-Hibberd.png" alt="Email sender photo" width="90" height="90" />
+              </td>
+              <td>
+                <table style="border-collapse: collapse !important; font-size: inherit;" role="presentation" border="0" cellspacing="0" cellpadding="0">
+                  <tbody>
+                    <tr>
+                      <td class="name title-color" style="float: left; clear: left; font-weight: bold; color: #030303; font-family: Helvetica, sans-serif; font-size: 14px;">Dan Hibberd</td>
+                      <td class="title title-color" style="float: left; clear: left; color: #030303; font-family: Helvetica, sans-serif; font-size: 14px;">Co-founder</td>
+                      <td class="title title-color" style="float: left; clear: left; color: #030303; font-family: Helvetica, sans-serif; font-size: 14px;">
+                        <a class="website link-color" style="color: #030303 !important; text-decoration: underline !important; font-size: 14px !important; font-family: Helvetica, sans-serif !important; font-weight: inherit !important; line-height: inherit !important;" href="https://www.makeshapes.com">Makeshapes.com &mdash; Group learning delivery at scale</a>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </td>
+            </tr>
+          </tbody>
+        </table>`,
       templates: [
         {
           step: 1,
           type: 'email',
-          subject: 'Fw: Meeting with {{FIRST_NAME}} - Delivering group learning at scale',
-          description: 'Initial outreach email introducing Makeshapes solution',
-          body: `Hi {{FIRST_NAME}},
-
-My colleague suggested I reach out to you at {{COMPANY}}.
-
-We've built a new approach to group learning that's not dependent on facilitators. Our main focus has been supporting {{INDUSTRY}} organizations facing these key challenges:
-
-• Delivering at scale
-• Delivering consistently  
-• Delivering quickly
-
-Curious if these are challenges you are facing at {{COMPANY}}. If so, interested to talk?
-
-Dan`
+          subject:
+            'Fw: Meeting with {{FIRST_NAME}} - Delivering group learning at scale',
+          description: 'Day 1 - Email subject line only',
+          body: '',
         },
         {
           step: 2,
-          type: 'linkedin',
-          subject: '',
-          description: 'LinkedIn connection request or message',
-          body: `Hi {{FIRST_NAME}}, I sent you an email about group learning solutions for {{COMPANY}}. Would love to connect and discuss how we're helping {{INDUSTRY}} organizations scale their learning delivery. Thanks!`
+          type: 'email',
+          subject:
+            'Re: Fw: Meeting with {{FIRST_NAME}} - Delivering group learning at scale',
+          description: 'Day 3 - Follow-up email with social proof',
+          body: `Hi {{FIRST_NAME}},
+
+My colleague suggested I reach out (see below).
+
+We've built a new approach to group learning that's not dependent on facilitators. Our main focus has been supporting dispersed orgs facing these key challenges:
+
+<div>
+<li>Delivering at scale</li>
+<li>Delivering consistently</li>
+<li>Delivering quickly</li>
+</div>
+
+Curious if these are challenges you are facing at {{COMPANY}}. If so, interested to talk?
+
+—Dan`,
         },
         {
           step: 3,
-          type: 'email',
-          subject: 'Re: Fw: Meeting with {{FIRST_NAME}} - Delivering group learning at scale',
-          description: 'Follow-up with social proof and case studies',
-          body: `{{FIRST_NAME}}—for context, we're helping organisations like QBE Insurance, Westpac Bank, AirNZ, Zespri International and others deliver various formats of group learning (leader-led, peer-to-peer, train-the-trainer).
-
-Given your role as {{TITLE}} at {{COMPANY}}, I thought this might be relevant for your {{INDUSTRY}} operations.
-
-Open to learning more?
-
-Dan`
+          type: 'linkedin',
+          subject: '',
+          description: 'Day 3 - LinkedIn message',
+          body: `Hi {{FIRST_NAME}}, I sent you an email about group learning solutions for {{COMPANY}}. Would love to connect and discuss how we're helping {{INDUSTRY}} organizations scale their learning delivery. Thanks!`,
         },
+
         {
           step: 4,
           type: 'email',
-          subject: 'Re: Fw: Meeting with {{FIRST_NAME}} - Delivering group learning at scale',
-          description: 'Video case study and proof point',
+          subject:
+            'Re: Fw: Meeting with {{FIRST_NAME}} - Delivering group learning at scale',
+          description: 'Step 3 - Email with social proof',
+          body: `{{FIRST_NAME}}—for context, we're helping organisations like QBE Insurance, Westpac Bank, AirNZ, Zespri International and others deliver various formats of group learning (leader-led, peer-to-peer, train-the-trainer).
+
+Open to learning more?
+
+—Dan`,
+        },
+        {
+          step: 5,
+          type: 'email',
+          subject:
+            'Re: Fw: Meeting with {{FIRST_NAME}} - Delivering group learning at scale',
+          description: 'Step 4 - Email with video case study',
           body: `{{FIRST_NAME}},
 
-I'm conscious there's a lot of noise in the learning tech space—everyone saying they have something unique.
+I'm conscious there's a lot of noise in the learning tech space—everyone saying they have something unique. 
 
 If it helps to hear from someone in a similar role, check out this short video from Lane Hannah and his experience transforming delivery of group/social learning at a large Telco.
 
 https://www.makeshapes.com/resources/one-nz-case-study
 
-Given the challenges in {{INDUSTRY}}, I think you'd find this particularly relevant.
-
 If it piques your curiosity let's find time to have a call.
 
-Dan`
-        },
-        {
-          step: 5,
-          type: 'email',
-          subject: 'Re: Fw: Meeting with {{FIRST_NAME}} - Delivering group learning at scale',
-          description: 'Demo offer and alternative contact',
-          body: `{{FIRST_NAME}}, sometimes it's easier to show, rather than tell. Just reply "yes" if you're interested in me sharing a demo link to an experience with you.
-
-Alternatively happy to book in some time and give you a live demo focused on {{INDUSTRY}} use cases.
-
-Dan
-
-PS - If there is someone else in the team at {{COMPANY}} that I should speak with, let me know.`
+—Dan`,
         },
         {
           step: 6,
           type: 'email',
-          subject: 'Re: Fw: Meeting with {{FIRST_NAME}} - Delivering group learning at scale',
-          description: 'Value-focused bump',
-          body: `{{FIRST_NAME}},
+          subject:
+            'Re: Fw: Meeting with {{FIRST_NAME}} - Delivering group learning at scale',
+          description: 'Step 5 - Demo offer email',
+          body: `{{FIRST_NAME}}, sometimes it's easier to show, rather than tell. Just reply "yes" if you're interested in me sharing a demo link to an experience with you.
 
-Quick question - are you still exploring ways to scale group learning delivery at {{COMPANY}}?
+Alternatively happy to book in some time and give you a live demo.
 
-If timing isn't right now, no worries. If it is, happy to show you how other {{INDUSTRY}} organizations are solving this.
+—Dan
 
-Best,
-Dan`
+PS - If there is someone else in the team that I should speak with, let me know.`,
         },
         {
           step: 7,
           type: 'email',
-          subject: 'Re: Fw: Meeting with {{FIRST_NAME}} - Delivering group learning at scale',
+          subject:
+            'Re: Fw: Meeting with {{FIRST_NAME}} - Delivering group learning at scale',
           description: 'Final breakup email',
           body: `{{FIRST_NAME}},
 
@@ -136,9 +148,9 @@ Most {{INDUSTRY}} organizations struggle with the trade-off between learning qua
 If this becomes a priority for {{COMPANY}} in the future, feel free to reach out.
 
 All the best,
-Dan`
-        }
-      ]
+—Dan`,
+        },
+      ],
     }
 
     this.templates.set('makeshapes-outreach', makeshapesTemplate)
@@ -150,7 +162,11 @@ Dan`
   ): ClaudeResponse {
     console.log('📋 [TemplateBasedService] Generating template-based content')
     console.log('📑 [TemplateBasedService] Template:', templateName)
-    console.log('👤 [TemplateBasedService] Lead:', leadData.first_name, leadData.last_name)
+    console.log(
+      '👤 [TemplateBasedService] Lead:',
+      leadData.first_name,
+      leadData.last_name
+    )
 
     const template = this.templates.get(templateName)
     if (!template) {
@@ -172,14 +188,24 @@ Dan`
     // Generate each snippet by substituting variables in templates
     template.templates.forEach((emailTemplate, index) => {
       const snippetKey = `snippet${index + 1}`
-      
+
       if (emailTemplate.type === 'email') {
         // For emails, create HTML structure with subject and body
-        const subject = this.substituteVariables(emailTemplate.subject, leadData)
+        const subject = this.substituteVariables(
+          emailTemplate.subject,
+          leadData
+        )
         const body = this.substituteVariables(emailTemplate.body, leadData)
         const footer = this.substituteVariables(template.footer, leadData)
-        
-        content[snippetKey] = `<div><strong>Subject:</strong> ${subject}</div><div><br></div><div>${body.replace(/\n/g, '</div><div>')}</div><div><br></div><div>${footer.replace(/\n/g, '</div><div>')}</div>`
+
+        if (emailTemplate.body.trim() === '') {
+          // Subject-only step (like Step 1)
+          content[snippetKey] = subject
+        } else {
+          // Full email with body and footer (no subject repetition)
+          content[snippetKey] =
+            `<div>${body.replace(/\n/g, '</div><div>')}</div><div><br></div>${footer}`
+        }
       } else {
         // For LinkedIn messages, just the body content
         const body = this.substituteVariables(emailTemplate.body, leadData)
@@ -195,14 +221,18 @@ Dan`
       }
     }
 
-    console.log('✅ [TemplateBasedService] Generated', Object.keys(content).filter(k => k.startsWith('snippet')).length, 'snippets')
-    
+    console.log(
+      '✅ [TemplateBasedService] Generated',
+      Object.keys(content).filter((k) => k.startsWith('snippet')).length,
+      'snippets'
+    )
+
     return content as ClaudeResponse
   }
 
   private substituteVariables(text: string, leadData: LeadData): string {
     let result = text
-    
+
     // Replace all template variables with actual data
     const substitutions = {
       '{{FIRST_NAME}}': leadData.first_name || 'there',
@@ -255,4 +285,5 @@ Dan`
   }
 }
 
-export const templateBasedGenerationService = new TemplateBasedGenerationService()
+export const templateBasedGenerationService =
+  new TemplateBasedGenerationService()

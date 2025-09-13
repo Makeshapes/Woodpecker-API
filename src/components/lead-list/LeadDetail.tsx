@@ -15,6 +15,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { toast } from 'sonner'
 import { ContentGeneration } from '@/components/content-generation/ContentGeneration'
 import type { LeadData, ColumnMapping, LeadStatus } from '@/types/lead'
 import { Trash2, Copy, Download } from 'lucide-react'
@@ -134,10 +135,12 @@ export function LeadDetail({
     try {
       const jsonData = JSON.stringify(createCompleteJson(), null, 2)
       await navigator.clipboard.writeText(jsonData)
+      toast.success('Copied to clipboard')
       setCopySuccess(true)
       setTimeout(() => setCopySuccess(false), 2000)
     } catch (error) {
       console.error('Failed to copy JSON:', error)
+      toast.error('Failed to copy to clipboard')
     }
   }
 

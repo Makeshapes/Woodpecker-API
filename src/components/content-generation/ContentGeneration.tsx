@@ -23,13 +23,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { toast } from 'sonner'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Loader2,
   Sparkles,
   Edit,
   Save,
   X,
-  Eye,
   Copy,
   Coins,
   Hash,
@@ -38,7 +39,10 @@ import {
   Image,
   Trash2,
 } from 'lucide-react'
-import { contentGenerationService, type GenerationMode } from '@/services/contentGenerationService'
+import {
+  contentGenerationService,
+  type GenerationMode,
+} from '@/services/contentGenerationService'
 import type { LeadData } from '@/types/lead'
 import type { ClaudeResponse } from '@/services/claudeService'
 import {
@@ -583,7 +587,7 @@ Dan`
 
     setIsGenerating(true)
     setError(null)
-    
+
     // Debug: Log when generation starts
     console.log('🚀 Starting content generation for lead:', lead.email)
     console.log('📝 Custom prompt:', customPrompt)
@@ -629,56 +633,77 @@ Dan`
           leadRecord.linkedin?.toString() || getFieldValue('linkedin') || '',
         custom_prompt: fullPrompt, // Include the full prompt with attachments
       }
-      
+
       // Debug: Log the lead data being sent
       console.log('📊 Lead data being sent to Claude:', leadData)
 
       // Update status to show generating even if component unmounts
-      console.log('🔄 Updating lead status to "generating" for lead ID:', lead.id)
-      onStatusUpdate?.(lead.id, 'generating' as 'imported' | 'generating' | 'drafted')
-      
+      console.log(
+        '🔄 Updating lead status to "generating" for lead ID:',
+        lead.id
+      )
+      onStatusUpdate?.(
+        lead.id,
+        'generating' as 'imported' | 'generating' | 'drafted'
+      )
+
       // Set the generation mode in the service
       contentGenerationService.setGenerationMode(generationMode)
-      
-      console.log('⏳ Calling content generation service with mode:', generationMode)
+
+      console.log(
+        '⏳ Calling content generation service with mode:',
+        generationMode
+      )
       const result = await contentGenerationService.generateForLead(
         leadData,
         'email-sequence',
         selectedModel
       )
-      
+
       // Debug: Log the raw result from Claude
       console.log('📥 Raw result from Claude:', result)
 
       if (result.status === 'completed' && result.content) {
         console.log('✅ Content generation successful!')
         console.log('📄 Generated content:', result.content)
-        
+
         setContent(result.content)
         onContentUpdate?.(result.content)
-        console.log('✅ Updating lead status to "drafted" for lead ID:', lead.id)
+        console.log(
+          '✅ Updating lead status to "drafted" for lead ID:',
+          lead.id
+        )
         onStatusUpdate?.(lead.id, 'drafted')
-        
+
         // Save to localStorage for persistence
         const leadId = btoa(String(lead.email || lead.id)).replace(/[/+=]/g, '')
-        console.log('💾 Saving to localStorage with key:', `lead_content_${leadId}`)
+        console.log(
+          '💾 Saving to localStorage with key:',
+          `lead_content_${leadId}`
+        )
       } else {
         console.error('❌ Generation failed:', result.error)
         setError(result.error || 'Failed to generate content')
-        console.log('❌ Updating lead status back to "imported" due to failure for lead ID:', lead.id)
+        console.log(
+          '❌ Updating lead status back to "imported" due to failure for lead ID:',
+          lead.id
+        )
         onStatusUpdate?.(lead.id, 'imported')
       }
     } catch (error) {
       console.error('🔥 Error in content generation:', error)
-      
+
       // Show specific error message to user
       let errorMessage = 'An unexpected error occurred'
-      
+
       if (error instanceof Error) {
         errorMessage = error.message
-        
+
         // Add more context for common errors
-        if (error.message.includes('Model error') || error.message.includes('Model not found')) {
+        if (
+          error.message.includes('Model error') ||
+          error.message.includes('Model not found')
+        ) {
           errorMessage = `${error.message}\n\nTry switching to a different model or check if you have access to the selected model.`
         } else if (error.message.includes('Access forbidden')) {
           errorMessage = `${error.message}\n\nYou may not have access to this model or have exceeded your quota. Try using Claude Haiku instead.`
@@ -686,11 +711,14 @@ Dan`
           errorMessage = `${error.message}\n\nPlease check your API key configuration in the environment variables.`
         }
       }
-      
+
       setError(errorMessage)
-      
+
       // Reset status on error
-      console.log('❌ Updating lead status back to "imported" due to exception for lead ID:', lead.id)
+      console.log(
+        '❌ Updating lead status back to "imported" due to exception for lead ID:',
+        lead.id
+      )
       onStatusUpdate?.(lead.id, 'imported')
     } finally {
       setIsGenerating(false)
@@ -796,101 +824,101 @@ Dan`
         {/* Custom Prompt Section */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-medium">Your Prompt</label>
-                <span className="text-xs text-muted-foreground">
-                  ({estimateTokens(customPrompt).toLocaleString()} tokens)
-                </span>
-              </div>
-              <label className="cursor-pointer">
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*,.pdf"
-                  onChange={handleFileSelect}
-                  className="hidden"
-                />
-                <Button variant="outline" size="sm" asChild>
-                  <span className="flex items-center gap-2">
-                    <Upload className="h-3 w-3" />
-                    Add Files
-                  </span>
-                </Button>
-              </label>
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium">Your Prompt</label>
+              <span className="text-xs text-muted-foreground">
+                ({estimateTokens(customPrompt).toLocaleString()} tokens)
+              </span>
             </div>
-
-            <div
-              className={`relative ${isDragging ? 'ring-2 ring-primary' : ''}`}
-            >
-              <Textarea
-                value={customPrompt}
-                onChange={(e) => setCustomPrompt(e.target.value)}
-                onPaste={handlePaste}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                placeholder="Enter your custom prompt here, paste screenshots, or drag & drop images/PDFs..."
-                rows={4}
-                className="min-h-[100px]"
+            <label className="cursor-pointer">
+              <input
+                type="file"
+                multiple
+                accept="image/*,.pdf"
+                onChange={handleFileSelect}
+                className="hidden"
               />
-              {isDragging && (
-                <div className="absolute inset-0 bg-primary/5 flex items-center justify-center pointer-events-none rounded-md">
-                  <div className="text-primary text-sm font-medium">
-                    Drop files here
-                  </div>
-                </div>
-              )}
-            </div>
+              <Button variant="outline" size="sm" asChild>
+                <span className="flex items-center gap-2">
+                  <Upload className="h-3 w-3" />
+                  Add Files
+                </span>
+              </Button>
+            </label>
+          </div>
 
-            {/* File Attachments */}
-            {fileAttachments.length > 0 && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span>Attached Files </span>
-                  {tokenInfo.attachmentTokens > 0 && (
-                    <span>
-                      (~{tokenInfo.attachmentTokens.toLocaleString()} tokens)
-                    </span>
-                  )}
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {fileAttachments.map((file) => (
-                    <div
-                      key={file.id}
-                      className="flex items-center gap-2 p-2 border rounded-md bg-muted/20"
-                    >
-                      {file.preview ? (
-                        <img
-                          src={file.preview}
-                          alt={file.name}
-                          className="h-8 w-8 object-cover rounded"
-                        />
-                      ) : file.type === 'application/pdf' ? (
-                        <FileText className="h-8 w-8 text-red-500" />
-                      ) : (
-                        <Image className="h-8 w-8 text-blue-500" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs font-medium truncate">
-                          {file.name}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {formatFileSize(file.size)}
-                        </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeFile(file.id)}
-                        className="h-6 w-6 p-0"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ))}
+          <div
+            className={`relative ${isDragging ? 'ring-2 ring-primary' : ''}`}
+          >
+            <Textarea
+              value={customPrompt}
+              onChange={(e) => setCustomPrompt(e.target.value)}
+              onPaste={handlePaste}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              placeholder="Enter your custom prompt here, paste screenshots, or drag & drop images/PDFs..."
+              rows={4}
+              className="min-h-[100px]"
+            />
+            {isDragging && (
+              <div className="absolute inset-0 bg-primary/5 flex items-center justify-center pointer-events-none rounded-md">
+                <div className="text-primary text-sm font-medium">
+                  Drop files here
                 </div>
               </div>
             )}
+          </div>
+
+          {/* File Attachments */}
+          {fileAttachments.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>Attached Files </span>
+                {tokenInfo.attachmentTokens > 0 && (
+                  <span>
+                    (~{tokenInfo.attachmentTokens.toLocaleString()} tokens)
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {fileAttachments.map((file) => (
+                  <div
+                    key={file.id}
+                    className="flex items-center gap-2 p-2 border rounded-md bg-muted/20"
+                  >
+                    {file.preview ? (
+                      <img
+                        src={file.preview}
+                        alt={file.name}
+                        className="h-8 w-8 object-cover rounded"
+                      />
+                    ) : file.type === 'application/pdf' ? (
+                      <FileText className="h-8 w-8 text-red-500" />
+                    ) : (
+                      <Image className="h-8 w-8 text-blue-500" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-medium truncate">
+                        {file.name}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {formatFileSize(file.size)}
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeFile(file.id)}
+                      className="h-6 w-6 p-0"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* System Prompt Accordion */}
           <Accordion type="single" collapsible className="w-full">
@@ -969,10 +997,14 @@ Dan`
                 <div className="space-y-4">
                   <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Generation Mode</label>
+                      <label className="text-sm font-medium">
+                        Generation Mode
+                      </label>
                       <Select
                         value={generationMode}
-                        onValueChange={(value: GenerationMode) => setGenerationMode(value)}
+                        onValueChange={(value: GenerationMode) =>
+                          setGenerationMode(value)
+                        }
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select mode" />
@@ -1000,7 +1032,11 @@ Dan`
                         onValueChange={setSelectedModel}
                         disabled={generationMode !== 'claude'}
                       >
-                        <SelectTrigger className={generationMode !== 'claude' ? 'opacity-50' : ''}>
+                        <SelectTrigger
+                          className={
+                            generationMode !== 'claude' ? 'opacity-50' : ''
+                          }
+                        >
                           <SelectValue placeholder="Select a model" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1019,16 +1055,21 @@ Dan`
 
                     <div className="space-y-2">
                       <label className="text-sm font-medium">
-                        Token Usage & Cost {generationMode !== 'claude' && '(N/A)'}
+                        Token Usage & Cost{' '}
+                        {generationMode !== 'claude' && '(N/A)'}
                       </label>
-                      <div className={`bg-muted/50 rounded-lg p-3 space-y-1 ${generationMode !== 'claude' ? 'opacity-50' : ''}`}>
+                      <div
+                        className={`bg-muted/50 rounded-lg p-3 space-y-1 ${generationMode !== 'claude' ? 'opacity-50' : ''}`}
+                      >
                         <div className="flex items-center justify-between text-xs">
                           <span className="flex items-center gap-1">
                             <Hash className="h-3 w-3" />
                             Input Tokens:
                           </span>
                           <span className="font-mono">
-                            {generationMode === 'claude' ? tokenInfo.inputTokens.toLocaleString() : 'N/A'}
+                            {generationMode === 'claude'
+                              ? tokenInfo.inputTokens.toLocaleString()
+                              : 'N/A'}
                           </span>
                         </div>
                         <div className="flex items-center justify-between text-xs">
@@ -1037,7 +1078,9 @@ Dan`
                             Est. Output:
                           </span>
                           <span className="font-mono">
-                            {generationMode === 'claude' ? `~${tokenInfo.estimatedOutputTokens.toLocaleString()}` : 'N/A'}
+                            {generationMode === 'claude'
+                              ? `~${tokenInfo.estimatedOutputTokens.toLocaleString()}`
+                              : 'N/A'}
                           </span>
                         </div>
                         <div className="border-t pt-1 mt-1">
@@ -1047,7 +1090,9 @@ Dan`
                               Est. Cost:
                             </span>
                             <span className="text-primary">
-                              {generationMode === 'claude' ? formatPrice(tokenInfo.pricing.totalCost) : 'Free'}
+                              {generationMode === 'claude'
+                                ? formatPrice(tokenInfo.pricing.totalCost)
+                                : 'Free'}
                             </span>
                           </div>
                         </div>
@@ -1157,6 +1202,7 @@ Dan`
 
     setEditingPreview(null)
     setPreviewContent({})
+    toast.success('Saved to LocalStorage')
   }
 
   const cancelPreviewEdit = () => {
@@ -1192,6 +1238,7 @@ Dan`
     localStorage.setItem(`lead_content_${leadId}`, JSON.stringify(data))
 
     setEditingSnippet(null)
+    toast.success('Saved to LocalStorage')
   }
 
   const cancelEdit = () => {
@@ -1202,6 +1249,7 @@ Dan`
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text)
+      toast.success('Copied to clipboard')
     } catch {
       // Fallback for older browsers
       const textArea = document.createElement('textarea')
@@ -1210,6 +1258,7 @@ Dan`
       textArea.select()
       document.execCommand('copy')
       document.body.removeChild(textArea)
+      toast.success('Copied to clipboard')
     }
   }
 
@@ -1248,18 +1297,16 @@ Dan`
                   >
                     <Copy className="h-3 w-3" />
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() =>
-                      snippet.isHtml
-                        ? startPreviewEdit(String(snippet.key))
-                        : startEditing(String(snippet.key))
-                    }
-                    className="h-8 w-8 p-0"
-                  >
-                    <Edit className="h-3 w-3" />
-                  </Button>
+                  {editingPreview !== snippet.key && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => startEditing(String(snippet.key))}
+                      className="h-8 w-8 p-0"
+                    >
+                      <Edit className="h-3 w-3" />
+                    </Button>
+                  )}
                 </>
               )}
               {(isEditing || editingPreview === snippet.key) && (
@@ -1294,108 +1341,80 @@ Dan`
           </div>
         </CardHeader>
         <CardContent className="pt-0">
-          {isEditing ? (
-            <Textarea
-              value={String(displayContent)}
-              onChange={(e) =>
-                setEditedContent({
-                  ...editedContent,
-                  [snippet.key]: e.target.value,
-                })
-              }
-              rows={snippet.isHtml ? 6 : 3}
-              className="min-h-[80px]"
-            />
-          ) : editingPreview === snippet.key ? (
-            <div className="space-y-2">
-              <Textarea
-                value={String(previewContent[snippet.key] || '')}
-                onChange={(e) =>
-                  setPreviewContent({
-                    ...previewContent,
-                    [snippet.key]: e.target.value,
-                  })
-                }
-                rows={6}
-                className="min-h-[80px] text-sm"
-                placeholder="Edit the preview text here..."
-              />
-            </div>
+          {isEditing || editingPreview === snippet.key ? (
+            <Tabs defaultValue="preview" className="w-full">
+              <TabsList className="ml-auto w-fit">
+                <TabsTrigger value="preview">Preview</TabsTrigger>
+                <TabsTrigger value="html">HTML</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="preview" className="mt-4">
+                {isEditing ? (
+                  <Textarea
+                    value={String(editedContent[snippet.key] || '')}
+                    onChange={(e) =>
+                      setEditedContent({
+                        ...editedContent,
+                        [snippet.key]: e.target.value,
+                      })
+                    }
+                    rows={6}
+                    className="min-h-[80px] text-sm"
+                    placeholder="Edit the content here..."
+                  />
+                ) : snippet.isHtml ? (
+                  <div
+                    className="text-sm border rounded p-3 bg-muted/20 min-h-[80px] prose prose-sm max-w-none [&_li]:list-disc [&_li]:ml-4 [&_ul]:mb-2 [&_div]:mb-1"
+                    dangerouslySetInnerHTML={{
+                      __html: String(displayContent),
+                    }}
+                  />
+                ) : (
+                  <div className="text-sm border rounded p-3 bg-muted/20 min-h-[60px] whitespace-pre-wrap">
+                    {String(displayContent)}
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="html" className="mt-4">
+                {isEditing ? (
+                  <Textarea
+                    value={String(displayContent)}
+                    onChange={(e) =>
+                      setEditedContent({
+                        ...editedContent,
+                        [snippet.key]: e.target.value,
+                      })
+                    }
+                    rows={snippet.isHtml ? 8 : 6}
+                    className="min-h-[120px] font-mono text-sm"
+                    placeholder="Edit HTML content here..."
+                  />
+                ) : (
+                  <div className="text-sm border rounded p-3 bg-muted/20 min-h-[80px] font-mono whitespace-pre-wrap overflow-auto">
+                    {String(displayContent)}
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
           ) : (
+            // Preview mode - always show rendered content
             <div className="space-y-2">
               {snippet.isHtml ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="text-xs text-muted-foreground">
-                        Preview:
-                      </div>
-                      {editingPreview !== snippet.key && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => startPreviewEdit(String(snippet.key))}
-                          className="h-6 px-2 text-xs"
-                        >
-                          <Edit className="h-3 w-3 mr-1" />
-                          Edit Preview
-                        </Button>
-                      )}
-                    </div>
-                    {editingPreview === snippet.key ? (
-                      <div className="space-y-2">
-                        <Textarea
-                          value={String(previewContent[snippet.key] || '')}
-                          onChange={(e) =>
-                            setPreviewContent({
-                              ...previewContent,
-                              [snippet.key]: e.target.value,
-                            })
-                          }
-                          rows={6}
-                          className="min-h-[80px] text-sm"
-                          placeholder="Edit the preview text here..."
-                        />
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            onClick={() => savePreviewEdit(String(snippet.key))}
-                          >
-                            <Save className="h-3 w-3 mr-1" />
-                            Save & Convert to HTML
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={cancelPreviewEdit}
-                          >
-                            <X className="h-3 w-3 mr-1" />
-                            Cancel
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div
-                        className="text-sm border rounded p-3 bg-muted/20 min-h-[80px] cursor-pointer hover:bg-muted/30 transition-colors"
-                        dangerouslySetInnerHTML={{
-                          __html: String(displayContent),
-                        }}
-                        onClick={() => startPreviewEdit(String(snippet.key))}
-                        title="Click to edit preview"
-                      />
-                    )}
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground mb-1">
-                      HTML Source:
-                    </div>
-                    <div className="text-xs font-mono border rounded p-3 bg-muted/50 min-h-[80px] overflow-auto">
-                      {String(displayContent)}
-                    </div>
-                  </div>
-                </div>
+                <div
+                  className="text-sm border rounded p-3 bg-muted/20 min-h-[80px] cursor-pointer hover:bg-muted/30 transition-colors"
+                  dangerouslySetInnerHTML={{
+                    __html: String(displayContent),
+                  }}
+                  onClick={() => startPreviewEdit(String(snippet.key))}
+                  title="Click to edit"
+                />
               ) : (
-                <div className="text-sm border rounded p-3 bg-muted/20 min-h-[60px]">
+                <div
+                  className="text-sm border rounded p-3 bg-muted/20 min-h-[60px] cursor-pointer hover:bg-muted/30 transition-colors"
+                  onClick={() => startPreviewEdit(String(snippet.key))}
+                  title="Click to edit"
+                >
                   {String(displayContent)}
                 </div>
               )}
@@ -1428,82 +1447,122 @@ Dan`
             <CardTitle className="text-lg flex items-center gap-2">
               <Sparkles className="h-5 w-5" />
               Email Sequence Content
-              </CardTitle>
-              <CardDescription>
-                AI-generated 6-touchpoint email sequence with 7 content snippets
-              </CardDescription>
-            </div>
-            {content && (
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    setViewMode(viewMode === 'preview' ? 'edit' : 'preview')
-                  }
-                >
-                  {viewMode === 'preview' ? (
-                    <Edit className="h-4 w-4 mr-2" />
-                  ) : (
-                    <Eye className="h-4 w-4 mr-2" />
-                  )}
-                  {viewMode === 'preview' ? 'Edit Mode' : 'Preview Mode'}
-                </Button>
-              </div>
-            )}
+            </CardTitle>
+            <CardDescription>
+              AI-generated 6-touchpoint email sequence with 7 content snippets
+            </CardDescription>
           </div>
-        </CardHeader>
-        <CardContent>
-          {error && (
-            <div className="mb-4 p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded">
-              {error}
-            </div>
-          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        {error && (
+          <div className="mb-4 p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded">
+            {error}
+          </div>
+        )}
 
-          {!content && !isGenerating && renderGenerationModal()}
+        {!content && !isGenerating && renderGenerationModal()}
 
-          {isGenerating && (
-            <div className="text-center py-6">
-              <Loader2 className="h-8 w-8 mx-auto animate-spin text-primary mb-4" />
-              <h3 className="text-lg font-medium mb-2">
-                Generating Content...
-              </h3>
-              <p className="text-muted-foreground">
-                Creating personalized email sequence for{' '}
-                {getFieldValue('contact') || 'this lead'}
-              </p>
-            </div>
-          )}
+        {isGenerating && (
+          <div className="text-center py-6">
+            <Loader2 className="h-8 w-8 mx-auto animate-spin text-primary mb-4" />
+            <h3 className="text-lg font-medium mb-2">Generating Content...</h3>
+            <p className="text-muted-foreground">
+              Creating personalized email sequence for{' '}
+              {getFieldValue('contact') || 'this lead'}
+            </p>
+          </div>
+        )}
 
-          {content && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between pb-2 border-b">
-                <div>
-                  <p className="text-sm font-medium">Generated Content</p>
-                  <p className="text-xs text-muted-foreground">
-                    7 snippets for 6-touchpoint email sequence
-                  </p>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setContent(null)
-                    const leadName = getFieldValue('contact') || 'this lead'
-                    setCustomPrompt(`Tell me about ${leadName}`)
-                  }}
-                  disabled={isGenerating}
-                  className="gap-2"
-                >
-                  <Sparkles className="h-4 w-4" />
-                  Regenerate
-                </Button>
+        {content && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b">
+              <div>
+                <p className="text-sm font-medium">Generated Content</p>
+                <p className="text-xs text-muted-foreground">
+                  7 snippets for 6-touchpoint email sequence
+                </p>
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  // Clear content state
+                  setContent(null)
+                  onContentUpdate?.(null)
 
-              <div className="space-y-4">{SNIPPETS.map(renderContent)}</div>
+                  // Clear localStorage using service
+                  const leadId = btoa(String(lead.email || lead.id)).replace(
+                    /[/+=]/g,
+                    ''
+                  )
+                  contentGenerationService.clearLeadContent(leadId)
+
+                  // Reset prompt
+                  const leadName = getFieldValue('contact') || 'this lead'
+                  setCustomPrompt(`Tell me about ${leadName}`)
+
+                  // Show toast notification
+                  toast.info('Content cleared - ready to regenerate')
+                }}
+                disabled={isGenerating}
+                className="gap-2"
+              >
+                <Sparkles className="h-4 w-4" />
+                Regenerate
+              </Button>
             </div>
-          )}
-        </CardContent>
-      </Card>
+
+            <div className="space-y-4">{SNIPPETS.map(renderContent)}</div>
+
+            {/* JSON Output Section */}
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="json-output">
+                <AccordionTrigger className="text-sm">
+                  <div className="flex items-center gap-2">
+                    <Hash className="h-4 w-4" />
+                    Generated Content JSON & HTML Source
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="space-y-4">
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-2">
+                        Complete JSON Response:
+                      </div>
+                      <div className="text-xs font-mono border rounded p-3 bg-muted/50 max-h-96 overflow-auto">
+                        <pre>{JSON.stringify(content, null, 2)}</pre>
+                      </div>
+                    </div>
+
+                    {/* HTML Source for each snippet */}
+                    {SNIPPETS.filter((snippet) => snippet.isHtml).map(
+                      (snippet) => {
+                        const displayContent =
+                          editingSnippet === snippet.key
+                            ? editedSnippets[snippet.key] ||
+                              content[snippet.key]
+                            : content[snippet.key] || ''
+
+                        return (
+                          <div key={`html-${snippet.key}`}>
+                            <div className="text-xs text-muted-foreground mb-2">
+                              {snippet.label} - HTML Source:
+                            </div>
+                            <div className="text-xs font-mono border rounded p-3 bg-muted/50 max-h-48 overflow-auto">
+                              {String(displayContent)}
+                            </div>
+                          </div>
+                        )
+                      }
+                    )}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }
