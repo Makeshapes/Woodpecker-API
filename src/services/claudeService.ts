@@ -72,6 +72,9 @@ export class ClaudeService {
     this.client = new Anthropic({
       apiKey: key,
       dangerouslyAllowBrowser: true,
+      defaultHeaders: {
+        'anthropic-beta': 'files-api-2025-04-14'
+      }
     })
     
     console.log('✅ [ClaudeService] Claude client initialized successfully')
@@ -137,6 +140,7 @@ export class ClaudeService {
       console.log('Expected: 7 blocks')
       console.log('Received:', blocks.length, 'blocks')
       console.log('Raw response preview (first 1000 chars):', responseText.substring(0, 1000))
+      console.log('Full raw response:', responseText)
       
       // If we only got 1 block, check if it's JSON format
       if (blocks.length === 1) {
@@ -223,7 +227,9 @@ export class ClaudeService {
   async generateContent(
     prompt: string,
     leadData: Record<string, unknown>,
-    modelId: string = 'claude-sonnet-4-20250514'
+    modelId: string = 'claude-sonnet-4-20250514',
+    systemPrompt?: string,
+    fileIds?: string[]
   ): Promise<ClaudeResponse> {
     console.log('🤖 [ClaudeService] Starting API call with model:', modelId)
     console.log('📝 [ClaudeService] Prompt length:', prompt.length, 'characters')
@@ -236,17 +242,50 @@ export class ClaudeService {
       console.log('✅ [ClaudeService] Rate limit check passed')
 
       console.log('🚀 [ClaudeService] Making API call to Claude...')
-      const response = await this.client.messages.create({
+      
+      // Build message content - start with text
+      const messageContent: any[] = [
+        {
+          type: 'text',
+          text: prompt
+        }
+      ]
+
+      // Add file references if provided
+      if (fileIds && fileIds.length > 0) {
+        console.log('📎 [ClaudeService] Adding file references:', fileIds)
+        fileIds.forEach(fileId => {
+          // Determine content type based on file ID or file metadata
+          // For now, we'll default to image since most uploads are images
+          messageContent.push({
+            type: 'image',
+            source: {
+              type: 'file',
+              file_id: fileId
+            }
+          })
+        })
+      }
+
+      const apiCall: any = {
         model: modelId,
         max_tokens: 4000,
         temperature: 0.7,
         messages: [
           {
             role: 'user',
-            content: prompt,
+            content: messageContent,
           },
         ],
-      })
+      }
+
+      // Add system prompt if provided
+      if (systemPrompt) {
+        apiCall.system = systemPrompt
+        console.log('📋 [ClaudeService] Using system prompt:', systemPrompt.length, 'characters')
+      }
+
+      const response = await this.client.messages.create(apiCall)
       
       const duration = Date.now() - startTime
       console.log('📨 [ClaudeService] Received response from Claude API in', duration, 'ms')
@@ -379,13 +418,15 @@ export class ClaudeService {
     prompt: string,
     leadData: Record<string, unknown>,
     maxRetries: number = 3,
-    modelId?: string
+    modelId?: string,
+    systemPrompt?: string,
+    fileIds?: string[]
   ): Promise<ClaudeResponse> {
     let lastError: ClaudeApiError
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
-        return await this.generateContent(prompt, leadData, modelId)
+        return await this.generateContent(prompt, leadData, modelId, systemPrompt, fileIds)
       } catch (error) {
         if (!(error instanceof ClaudeApiError)) {
           throw error
@@ -427,6 +468,71 @@ export class ClaudeService {
   getRemainingRequests(): number {
     this.resetRateLimitIfNeeded()
     return Math.max(0, this.MAX_REQUESTS_PER_MINUTE - this.requestCount)
+  }
+
+  // Files API methods
+  async uploadFile(file: File): Promise<string> {
+    console.log('📁 [ClaudeService] Uploading file:', file.name, file.size, 'bytes')
+    
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const response = await fetch('https://api.anthropic.com/v1/files', {
+        method: 'POST',
+        headers: {
+          'x-api-key': this.client.apiKey!,
+          'anthropic-version': '2023-06-01',
+          'anthropic-beta': 'files-api-2025-04-14'
+        },
+        body: formData
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new ClaudeApiError(
+          `File upload failed: ${errorData.error?.message || response.statusText}`,
+          'network',
+          true
+        )
+      }
+
+      const result = await response.json()
+      console.log('✅ [ClaudeService] File uploaded successfully:', result.id)
+      return result.id
+    } catch (error) {
+      console.error('❌ [ClaudeService] File upload error:', error)
+      throw error
+    }
+  }
+
+  async deleteFile(fileId: string): Promise<void> {
+    console.log('🗑️ [ClaudeService] Deleting file:', fileId)
+    
+    try {
+      const response = await fetch(`https://api.anthropic.com/v1/files/${fileId}`, {
+        method: 'DELETE',
+        headers: {
+          'x-api-key': this.client.apiKey!,
+          'anthropic-version': '2023-06-01',
+          'anthropic-beta': 'files-api-2025-04-14'
+        }
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new ClaudeApiError(
+          `File deletion failed: ${errorData.error?.message || response.statusText}`,
+          'network',
+          true
+        )
+      }
+
+      console.log('✅ [ClaudeService] File deleted successfully')
+    } catch (error) {
+      console.error('❌ [ClaudeService] File deletion error:', error)
+      throw error
+    }
   }
 }
 

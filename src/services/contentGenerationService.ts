@@ -116,11 +116,33 @@ export class ContentGenerationService {
             remainingRequests: this.claudeService.getRemainingRequests()
           })
           
+          // Extract system prompt from custom_prompt if it exists
+          let systemPrompt: string | undefined
+          let userPrompt = prompt
+          
+          if (leadData.custom_prompt && typeof leadData.custom_prompt === 'string') {
+            const customPromptStr = leadData.custom_prompt as string
+            // Check if it contains the system prompt pattern
+            const systemPromptMatch = customPromptStr.match(/^(# Makeshapes Cold Email.*?)(\n\n(?:Tell me about|Here's|Please).*)/s)
+            if (systemPromptMatch) {
+              systemPrompt = systemPromptMatch[1]
+              userPrompt = systemPromptMatch[2].trim()
+              console.log('📋 [ContentGenerationService] Separated system prompt:', systemPrompt.length, 'chars')
+              console.log('👤 [ContentGenerationService] User prompt:', userPrompt.length, 'chars')
+            }
+          }
+
+          // Extract file IDs from leadData
+          const fileIds = (leadData as unknown as { file_ids?: string[] }).file_ids || []
+          console.log('📎 [ContentGenerationService] File IDs for Claude API:', fileIds)
+
           content = await this.claudeService.generateContentWithRetry(
-            prompt,
+            userPrompt,
             leadData as unknown as Record<string, unknown>,
             3,
-            modelId
+            modelId,
+            systemPrompt,
+            fileIds
           )
           console.log('✅ [ContentGenerationService] Claude API returned content successfully')
           console.log('📦 [ContentGenerationService] Content keys:', Object.keys(content))

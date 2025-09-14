@@ -3,8 +3,10 @@ export interface FileAttachment {
   name: string
   type: string
   size: number
-  data: string // base64 encoded
+  data: string // base64 encoded (for preview)
   preview?: string // for images
+  file_id?: string // Claude Files API ID
+  uploading?: boolean // upload status
 }
 
 export const ALLOWED_FILE_TYPES = {

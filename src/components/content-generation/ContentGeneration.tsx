@@ -24,7 +24,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { toast } from 'sonner'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Loader2,
   Sparkles,
@@ -45,6 +44,7 @@ import {
 } from '@/services/contentGenerationService'
 import type { LeadData } from '@/types/lead'
 import type { ClaudeResponse } from '@/services/claudeService'
+import { createClaudeService } from '@/services/claudeService'
 import {
   estimateTokens,
   MODEL_PRICING,
@@ -131,11 +131,7 @@ export function ContentGeneration({
   const [editedContent, setEditedContent] = useState<Partial<ClaudeResponse>>(
     {}
   )
-  const [editingPreview, setEditingPreview] = useState<string | null>(null)
-  const [previewContent, setPreviewContent] = useState<Partial<ClaudeResponse>>(
-    {}
-  )
-  const [viewMode, setViewMode] = useState<'preview' | 'edit'>('preview')
+  // const [viewMode, setViewMode] = useState<'preview' | 'edit'>('preview')
   const [error, setError] = useState<string | null>(null)
   const [customPrompt, setCustomPrompt] = useState('')
   const [systemPrompt, setSystemPrompt] = useState('')
@@ -148,34 +144,45 @@ export function ContentGeneration({
 
   // Calculate token counts and pricing
   const tokenInfo = useMemo(() => {
-    let fullPrompt = `${systemPrompt}\n\n${customPrompt}`
+    // Count system and user prompts separately (system prompts are more efficient)
+    const systemTokens = estimateTokens(systemPrompt)
+    const userTokens = estimateTokens(customPrompt)
 
-    // Add tokens for file attachments
+    // Add tokens for file attachments - much lower with Files API
     let attachmentTokens = 0
     if (fileAttachments.length > 0) {
-      fullPrompt += '\n\n--- ATTACHED FILES ---\n'
       fileAttachments.forEach((file) => {
-        if (file.type.startsWith('image/')) {
-          // Images in base64 format are roughly 1.37x larger, and then tokenized
-          // Estimate ~750 tokens per small image, ~1500 for medium, ~3000 for large
-          const sizeInKB = file.size / 1024
-          if (sizeInKB < 100) {
-            attachmentTokens += 750
-          } else if (sizeInKB < 500) {
-            attachmentTokens += 1500
-          } else {
-            attachmentTokens += 3000
+        if (file.file_id) {
+          // With Files API, we only pay for file references, not the full content
+          if (file.type.startsWith('image/')) {
+            // Files API charges for image analysis, estimated ~10-50 tokens per image
+            attachmentTokens += 20
+          } else if (file.type === 'application/pdf') {
+            // PDF analysis through Files API, estimated ~50-200 tokens depending on content
+            const sizeInKB = file.size / 1024
+            attachmentTokens += Math.min(Math.ceil(sizeInKB / 20), 200) // Max 200 tokens per PDF
           }
-        } else if (file.type === 'application/pdf') {
-          // PDFs need content extraction, estimate based on file size
-          // Roughly 500 tokens per 100KB
-          attachmentTokens += Math.ceil((file.size / 1024 / 100) * 500)
+        } else if (!file.uploading) {
+          // File upload failed, but still show old base64 estimates to warn user
+          if (file.type.startsWith('image/')) {
+            const sizeInKB = file.size / 1024
+            if (sizeInKB < 100) {
+              attachmentTokens += 750
+            } else if (sizeInKB < 500) {
+              attachmentTokens += 1500
+            } else {
+              attachmentTokens += 3000
+            }
+          } else if (file.type === 'application/pdf') {
+            attachmentTokens += Math.ceil((file.size / 1024 / 100) * 500)
+          }
         }
+        // Files that are uploading don't count towards tokens yet
       })
     }
 
-    const textTokens = estimateTokens(fullPrompt)
-    const inputTokens = textTokens + attachmentTokens
+    // Total input tokens (system prompt is handled more efficiently by Claude)
+    const inputTokens = systemTokens + userTokens + attachmentTokens
     // Estimate output tokens (7 blocks, roughly 1000 tokens total)
     const estimatedOutputTokens = 1000
     const pricing = calculatePrice(
@@ -191,6 +198,8 @@ export function ContentGeneration({
       pricing,
       modelInfo: MODEL_PRICING[selectedModel],
       attachmentTokens,
+      systemTokens,
+      userTokens,
     }
   }, [systemPrompt, customPrompt, selectedModel, fileAttachments])
 
@@ -457,13 +466,23 @@ Each email MUST include:
    - Metrics and peer examples included
    - Professional but conversational tone
 
-## CRITICAL OUTPUT FORMAT REQUIREMENTS
+## CRITICAL OUTPUT FORMAT REQUIREMENTS - FOLLOW EXACTLY
+
+🚨 **MANDATORY RULES - NO EXCEPTIONS:**
+
+1. **START YOUR RESPONSE IMMEDIATELY WITH ---BLOCK---**
+2. **NO EXPLANATIONS, NO APOLOGIES, NO INTRODUCTIONS**
+3. **NO JSON FORMAT EVER**
+4. **EXACTLY 7 BLOCKS SEPARATED BY ---BLOCK---**
+5. **NO FIELD NAMES OR LABELS**
 
 **DO NOT OUTPUT JSON!** Output plain text blocks ONLY.
 
 You MUST output exactly 7 text blocks separated by "---BLOCK---" delimiter.
 DO NOT output JSON format. DO NOT include field names like "snippet1" or "email".
 Just output the raw content blocks separated by ---BLOCK---
+
+**YOUR RESPONSE MUST START WITH:** ---BLOCK---
 
 **Block 1:** Subject line only (36-50 characters)
 
@@ -503,7 +522,13 @@ Dan"
 - Professional and understanding tone
 
 ## CRITICAL OUTPUT RULES - MUST FOLLOW:
-- DO NOT OUTPUT JSON FORMAT
+
+🚨 **FINAL REMINDER - ABSOLUTELY MANDATORY:**
+
+- **YOUR FIRST WORD MUST BE: ---BLOCK---**
+- **NO EXPLANATORY TEXT BEFORE THE BLOCKS**
+- **NO APOLOGIES OR CONTEXT**
+- **DO NOT OUTPUT JSON FORMAT**
 - Start your response with "---BLOCK---" immediately
 - Output ONLY the content, no field names or JSON structure
 - Separate each block with "---BLOCK---" on its own line
@@ -511,6 +536,12 @@ Dan"
 - Do NOT include HTML tags - they will be added automatically
 - Do NOT include block numbers, labels, or field names in the output
 - Do NOT wrap the output in JSON or any other format
+
+**EXAMPLE START OF CORRECT RESPONSE:**
+---BLOCK---
+Your first subject line here
+---BLOCK---
+Your first email content here...
 
 ## Example Input → Output
 
@@ -572,15 +603,22 @@ Dan`
     setSystemPrompt(defaultSystemPrompt)
     setEditedSystemPrompt(defaultSystemPrompt)
 
-    // Set default custom prompt
-    const leadName = getFieldValue('contact') || 'this lead'
-    setCustomPrompt(`Tell me about ${leadName}`)
+    // Custom prompt starts empty
   }, [lead.email, lead.id, getFieldValue, onContentUpdate])
 
   const generateContent = async () => {
     if (!lead.email || !lead.company) {
       setError(
         'Lead must have email and company information to generate content'
+      )
+      return
+    }
+
+    // Check if any files are still uploading
+    const uploadingFiles = fileAttachments.filter(f => f.uploading)
+    if (uploadingFiles.length > 0) {
+      setError(
+        `Please wait for ${uploadingFiles.length} file(s) to finish uploading before generating content`
       )
       return
     }
@@ -594,20 +632,35 @@ Dan`
     console.log('🤖 Selected model:', selectedModel)
 
     try {
-      // Build prompt with file attachments
-      let fullPrompt = customPrompt
+      // Build prompt with file references or base64 data as fallback
+      let userPrompt = customPrompt
+      let fileIds: string[] = []
 
       if (fileAttachments.length > 0) {
-        fullPrompt += '\n\n--- ATTACHED FILES ---\n'
+        userPrompt += '\n\n--- ATTACHED FILES ---\n'
         fileAttachments.forEach((file, index) => {
-          if (file.type.startsWith('image/')) {
-            fullPrompt += `\n[Image ${index + 1}: ${file.name}]\n`
-            fullPrompt += file.data + '\n'
-          } else if (file.type === 'application/pdf') {
-            fullPrompt += `\n[PDF ${index + 1}: ${file.name} - Note: PDF content needs to be extracted separately]\n`
+          if (file.file_id) {
+            // Use Files API reference
+            fileIds.push(file.file_id)
+            if (file.type.startsWith('image/')) {
+              userPrompt += `\n[Image ${index + 1}: ${file.name}]\n`
+            } else if (file.type === 'application/pdf') {
+              userPrompt += `\n[PDF ${index + 1}: ${file.name}]\n`
+            }
+          } else if (!file.uploading) {
+            // Fallback to base64 embedding
+            if (file.type.startsWith('image/')) {
+              userPrompt += `\n[Image ${index + 1}: ${file.name}]\n`
+              userPrompt += file.data + '\n'
+            } else if (file.type === 'application/pdf') {
+              userPrompt += `\n[PDF ${index + 1}: ${file.name} - Note: PDF content needs to be extracted separately]\n`
+            }
           }
         })
       }
+
+      // Create full prompt with system prompt for processing
+      const fullPromptWithSystem = `${systemPrompt}\n\n${userPrompt}`
 
       const leadRecord = lead as Record<string, unknown>
       const leadData = {
@@ -631,7 +684,8 @@ Dan`
           'Technology',
         linkedin_url:
           leadRecord.linkedin?.toString() || getFieldValue('linkedin') || '',
-        custom_prompt: fullPrompt, // Include the full prompt with attachments
+        custom_prompt: fullPromptWithSystem, // Include the full prompt with system prompt for processing
+        file_ids: fileIds, // Include file IDs for Files API
       }
 
       // Debug: Log the lead data being sent
@@ -642,10 +696,7 @@ Dan`
         '🔄 Updating lead status to "generating" for lead ID:',
         lead.id
       )
-      onStatusUpdate?.(
-        lead.id,
-        'generating' as 'imported' | 'generating' | 'drafted'
-      )
+      onStatusUpdate?.(lead.id, 'generating')
 
       // Set the generation mode in the service
       contentGenerationService.setGenerationMode(generationMode)
@@ -726,13 +777,7 @@ Dan`
     }
   }
 
-  // Initialize prompt on mount
-  useEffect(() => {
-    if (!customPrompt) {
-      const leadName = getFieldValue('contact') || 'this lead'
-      setCustomPrompt(`Tell me about ${leadName}`)
-    }
-  }, [])
+  // Custom prompt starts empty - no default initialization
 
   // File handling functions
   const handleFileSelect = async (
@@ -741,11 +786,38 @@ Dan`
     const files = event.target.files
     if (!files) return
 
+    const claudeService = createClaudeService()
+
     for (const file of Array.from(files)) {
       try {
+        // First create the attachment with uploading state
         const attachment = await processFile(file)
         if (attachment) {
+          attachment.uploading = true
           setFileAttachments((prev) => [...prev, attachment])
+          
+          // Try to upload to Claude Files API, fallback to base64 if CORS fails
+          try {
+            const fileId = await claudeService.uploadFile(file)
+            // Update the attachment with the file_id and remove uploading state
+            setFileAttachments((prev) => 
+              prev.map(f => 
+                f.id === attachment.id 
+                  ? { ...f, file_id: fileId, uploading: false }
+                  : f
+              )
+            )
+          } catch (uploadError) {
+            console.warn('Files API upload failed, using base64 fallback:', uploadError)
+            // Fallback to base64 - just mark as ready without file_id
+            setFileAttachments((prev) => 
+              prev.map(f => 
+                f.id === attachment.id 
+                  ? { ...f, uploading: false }
+                  : f
+              )
+            )
+          }
         }
       } catch (error) {
         setError(
@@ -772,12 +844,39 @@ Dan`
     e.preventDefault()
     setIsDragging(false)
 
+    const claudeService = createClaudeService()
     const files = Array.from(e.dataTransfer.files)
+    
     for (const file of files) {
       try {
+        // First create the attachment with uploading state
         const attachment = await processFile(file)
         if (attachment) {
+          attachment.uploading = true
           setFileAttachments((prev) => [...prev, attachment])
+          
+          // Try to upload to Claude Files API, fallback to base64 if CORS fails
+          try {
+            const fileId = await claudeService.uploadFile(file)
+            // Update the attachment with the file_id and remove uploading state
+            setFileAttachments((prev) => 
+              prev.map(f => 
+                f.id === attachment.id 
+                  ? { ...f, file_id: fileId, uploading: false }
+                  : f
+              )
+            )
+          } catch (uploadError) {
+            console.warn('Files API upload failed, using base64 fallback:', uploadError)
+            // Fallback to base64 - just mark as ready without file_id
+            setFileAttachments((prev) => 
+              prev.map(f => 
+                f.id === attachment.id 
+                  ? { ...f, uploading: false }
+                  : f
+              )
+            )
+          }
         }
       } catch (error) {
         setError(
@@ -787,7 +886,19 @@ Dan`
     }
   }
 
-  const removeFile = (id: string) => {
+  const removeFile = async (id: string) => {
+    const claudeService = createClaudeService()
+    const fileToRemove = fileAttachments.find(f => f.id === id)
+    
+    // Delete from Claude Files API if it has a file_id
+    if (fileToRemove?.file_id) {
+      try {
+        await claudeService.deleteFile(fileToRemove.file_id)
+      } catch (error) {
+        console.warn('Failed to delete file from Claude API:', error)
+      }
+    }
+    
     setFileAttachments((prev) => prev.filter((f) => f.id !== id))
   }
 
@@ -801,9 +912,36 @@ Dan`
         const file = item.getAsFile()
         if (file) {
           try {
+            const claudeService = createClaudeService()
+            
+            // First create the attachment with uploading state
             const attachment = await processFile(file)
             if (attachment) {
+              attachment.uploading = true
               setFileAttachments((prev) => [...prev, attachment])
+              
+              // Try to upload to Claude Files API, fallback to base64 if CORS fails
+              try {
+                const fileId = await claudeService.uploadFile(file)
+                // Update the attachment with the file_id and remove uploading state
+                setFileAttachments((prev) => 
+                  prev.map(f => 
+                    f.id === attachment.id 
+                      ? { ...f, file_id: fileId, uploading: false }
+                      : f
+                  )
+                )
+              } catch (uploadError) {
+                console.warn('Files API upload failed, using base64 fallback:', uploadError)
+                // Fallback to base64 - just mark as ready without file_id
+                setFileAttachments((prev) => 
+                  prev.map(f => 
+                    f.id === attachment.id 
+                      ? { ...f, uploading: false }
+                      : f
+                  )
+                )
+              }
             }
           } catch (error) {
             setError(
@@ -821,30 +959,62 @@ Dan`
   const renderGenerationModal = () => (
     <>
       <div className="space-y-6">
-        {/* Custom Prompt Section */}
+        {/* Generation Mode Selection - Top Level */}
         <div className="space-y-2">
+          <label className="text-sm font-medium">Generation Mode</label>
+          <Select
+            value={generationMode}
+            onValueChange={(value: GenerationMode) => setGenerationMode(value)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select mode" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="claude">
+                ✨ Claude AI (Dynamic & Personalized)
+              </SelectItem>
+              <SelectItem value="templates">
+                📋 Templates (Structured & Consistent)
+              </SelectItem>
+              <SelectItem value="fallback">
+                🎲 Mock Data (Testing & Demo)
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Custom Prompt Section - Disabled for templates */}
+        <div
+          className={`space-y-2 ${generationMode === 'templates' ? 'opacity-50' : ''}`}
+        >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">Your Prompt</label>
-              <span className="text-xs text-muted-foreground">
-                ({estimateTokens(customPrompt).toLocaleString()} tokens)
-              </span>
-            </div>
-            <label className="cursor-pointer">
-              <input
-                type="file"
-                multiple
-                accept="image/*,.pdf"
-                onChange={handleFileSelect}
-                className="hidden"
-              />
-              <Button variant="outline" size="sm" asChild>
-                <span className="flex items-center gap-2">
-                  <Upload className="h-3 w-3" />
-                  Add Files
+              <label className="text-sm font-medium">
+                Your Prompt {generationMode === 'templates' && '(Not Used)'}
+              </label>
+              {generationMode !== 'templates' && (
+                <span className="text-xs text-muted-foreground">
+                  ({estimateTokens(customPrompt).toLocaleString()} tokens)
                 </span>
-              </Button>
-            </label>
+              )}
+            </div>
+            {generationMode !== 'templates' && (
+              <label className="cursor-pointer">
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*,.pdf"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+                <Button variant="outline" size="sm" asChild>
+                  <span className="flex items-center gap-2">
+                    <Upload className="h-3 w-3" />
+                    Add Files
+                  </span>
+                </Button>
+              </label>
+            )}
           </div>
 
           <div
@@ -853,13 +1023,22 @@ Dan`
             <Textarea
               value={customPrompt}
               onChange={(e) => setCustomPrompt(e.target.value)}
-              onPaste={handlePaste}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              placeholder="Enter your custom prompt here, paste screenshots, or drag & drop images/PDFs..."
+              onPaste={generationMode !== 'templates' ? handlePaste : undefined}
+              onDragOver={
+                generationMode !== 'templates' ? handleDragOver : undefined
+              }
+              onDragLeave={
+                generationMode !== 'templates' ? handleDragLeave : undefined
+              }
+              onDrop={generationMode !== 'templates' ? handleDrop : undefined}
+              placeholder={
+                generationMode === 'templates'
+                  ? 'Templates mode selected - prompt not used'
+                  : `Tell me about ${getFieldValue('contact') || 'this lead'}`
+              }
               rows={4}
               className="min-h-[100px]"
+              disabled={generationMode === 'templates'}
             />
             {isDragging && (
               <div className="absolute inset-0 bg-primary/5 flex items-center justify-center pointer-events-none rounded-md">
@@ -870,8 +1049,8 @@ Dan`
             )}
           </div>
 
-          {/* File Attachments */}
-          {fileAttachments.length > 0 && (
+          {/* File Attachments - Hidden for templates mode */}
+          {generationMode !== 'templates' && fileAttachments.length > 0 && (
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span>Attached Files </span>
@@ -885,9 +1064,15 @@ Dan`
                 {fileAttachments.map((file) => (
                   <div
                     key={file.id}
-                    className="flex items-center gap-2 p-2 border rounded-md bg-muted/20"
+                    className={`flex items-center gap-2 p-2 border rounded-md ${
+                      file.uploading ? 'bg-blue-50 border-blue-200' : 
+                      file.file_id ? 'bg-green-50 border-green-200' : 
+                      'bg-red-50 border-red-200'
+                    }`}
                   >
-                    {file.preview ? (
+                    {file.uploading ? (
+                      <Loader2 className="h-8 w-8 text-blue-500 animate-spin" />
+                    ) : file.preview ? (
                       <img
                         src={file.preview}
                         alt={file.name}
@@ -904,6 +1089,9 @@ Dan`
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {formatFileSize(file.size)}
+                        {file.uploading && ' - Uploading...'}
+                        {file.file_id && ' - Files API'}
+                        {!file.uploading && !file.file_id && ' - Base64'}
                       </div>
                     </div>
                     <Button
@@ -911,6 +1099,7 @@ Dan`
                       size="sm"
                       onClick={() => removeFile(file.id)}
                       className="h-6 w-6 p-0"
+                      disabled={file.uploading}
                     >
                       <Trash2 className="h-3 w-3" />
                     </Button>
@@ -920,15 +1109,25 @@ Dan`
             </div>
           )}
 
-          {/* System Prompt Accordion */}
-          <Accordion type="single" collapsible className="w-full">
+          {/* System Prompt Accordion - Disabled for templates */}
+          <Accordion
+            type="single"
+            collapsible
+            className={`w-full ${generationMode === 'templates' ? 'opacity-50' : ''}`}
+          >
             <AccordionItem value="system-prompt">
-              <AccordionTrigger className="text-sm font-medium">
+              <AccordionTrigger
+                className="text-sm font-medium"
+                disabled={generationMode === 'templates'}
+              >
                 <div className="flex items-center gap-2">
-                  System Prompt Settings
-                  <span className="text-xs text-muted-foreground">
-                    ({estimateTokens(systemPrompt).toLocaleString()} tokens)
-                  </span>
+                  System Prompt Settings{' '}
+                  {generationMode === 'templates' && '(Not Used)'}
+                  {generationMode !== 'templates' && (
+                    <span className="text-xs text-muted-foreground">
+                      ({estimateTokens(systemPrompt).toLocaleString()} tokens)
+                    </span>
+                  )}
                 </div>
               </AccordionTrigger>
               <AccordionContent>
@@ -982,47 +1181,27 @@ Dan`
               </AccordionContent>
             </AccordionItem>
 
-            {/* Model Selection Accordion */}
+            {/* Model Selection Accordion - Disabled for templates */}
             <AccordionItem value="model-settings">
-              <AccordionTrigger className="text-sm font-medium">
+              <AccordionTrigger
+                className="text-sm font-medium"
+                disabled={generationMode === 'templates'}
+              >
                 <div className="flex items-center gap-2">
                   Model:{' '}
-                  {tokenInfo.modelInfo?.displayName || 'Claude 3.5 Haiku'}
-                  <span className="text-xs text-muted-foreground">
-                    ({formatPrice(tokenInfo.pricing.totalCost)} estimated)
-                  </span>
+                  {generationMode === 'templates'
+                    ? 'Not Used'
+                    : tokenInfo.modelInfo?.displayName || 'Claude 3.5 Haiku'}
+                  {generationMode !== 'templates' && (
+                    <span className="text-xs text-muted-foreground">
+                      ({formatPrice(tokenInfo.pricing.totalCost)} estimated)
+                    </span>
+                  )}
                 </div>
               </AccordionTrigger>
               <AccordionContent>
                 <div className="space-y-4">
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">
-                        Generation Mode
-                      </label>
-                      <Select
-                        value={generationMode}
-                        onValueChange={(value: GenerationMode) =>
-                          setGenerationMode(value)
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select mode" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="claude">
-                            🤖 Claude AI (Dynamic & Personalized)
-                          </SelectItem>
-                          <SelectItem value="templates">
-                            📋 Templates (Structured & Consistent)
-                          </SelectItem>
-                          <SelectItem value="fallback">
-                            🎲 Mock Data (Testing & Demo)
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium">
                         AI Model {generationMode !== 'claude' && '(Not Used)'}
@@ -1100,18 +1279,20 @@ Dan`
                     </div>
                   </div>
 
-                  <div className="text-xs text-muted-foreground space-y-1">
-                    <p>
-                      • Input: $
-                      {tokenInfo.modelInfo?.inputPricePerMillion.toFixed(2)}/M
-                      tokens
-                    </p>
-                    <p>
-                      • Output: $
-                      {tokenInfo.modelInfo?.outputPricePerMillion.toFixed(2)}/M
-                      tokens
-                    </p>
-                  </div>
+                  {generationMode === 'claude' && (
+                    <div className="text-xs text-muted-foreground space-y-1">
+                      <p>
+                        • Input: $
+                        {tokenInfo.modelInfo?.inputPricePerMillion.toFixed(2)}/M
+                        tokens
+                      </p>
+                      <p>
+                        • Output: $
+                        {tokenInfo.modelInfo?.outputPricePerMillion.toFixed(2)}
+                        /M tokens
+                      </p>
+                    </div>
+                  )}
                 </div>
               </AccordionContent>
             </AccordionItem>
@@ -1150,80 +1331,89 @@ Dan`
 
   // Convert plain text to HTML format
   const convertTextToHtml = (text: string): string => {
-    return text
-      .split('\n\n')
+    if (!text) return ''
+    
+    // Split by double newlines first (paragraphs)
+    const paragraphs = text.split('\n\n')
+    
+    return paragraphs
       .map((paragraph) => paragraph.trim())
       .filter((paragraph) => paragraph.length > 0)
-      .map((paragraph) => `<div>${paragraph}</div>`)
-      .join('<div><br></div>')
+      .map((paragraph) => {
+        // Handle single line breaks within paragraphs
+        const withLineBreaks = paragraph.replace(/\n/g, '<br>')
+        return `<div style="margin-bottom: 16px;">${withLineBreaks}</div>`
+      })
+      .join('')
   }
 
-  // Extract plain text from HTML
+  // Extract plain text from HTML (robust, preserves basic line breaks and bullets)
   const convertHtmlToText = (html: string): string => {
-    return html
-      .replace(/<div><br><\/div>/g, '\n\n')
-      .replace(/<div>/g, '')
-      .replace(/<\/div>/g, '')
-      .replace(/<br>/g, '\n')
+    if (!html) return ''
+    let text = String(html)
+
+    // Handle our new div format with margin-bottom
+    text = text.replace(
+      /<div\s+style="margin-bottom:\s*16px;">(.*?)<\/div>/gi,
+      '$1\n\n'
+    )
+
+    // Normalize common break tags to newlines
+    text = text.replace(/<(br|BR)\s*\/?>(\s*)/g, '\n')
+
+    // Add newlines after common block-level closing tags
+    text = text.replace(/<\/(p|div|h[1-6]|tr)>/gi, '\n')
+
+    // Lists → bullets
+    text = text.replace(/<li[^>]*>/gi, '• ')
+    text = text.replace(/<\/li>/gi, '\n')
+
+    // Table/section boundaries to newlines
+    text = text.replace(/<\/(ul|ol|table|thead|tbody|tfoot)>/gi, '\n')
+
+    // Strip all remaining tags
+    text = text.replace(/<[^>]+>/g, '')
+
+    // Decode HTML entities using the browser
+    const textarea = document.createElement('textarea')
+    textarea.innerHTML = text
+    text = textarea.value
+
+    // Collapse excessive blank lines and trim
+    text = text
+      .replace(/\n{3,}/g, '\n\n')
+      .replace(/[ \t]+\n/g, '\n')
       .trim()
-  }
-
-  const startPreviewEdit = (snippetKey: string) => {
-    setEditingPreview(snippetKey)
-    const htmlContent = content?.[snippetKey as keyof ClaudeResponse] || ''
-    const textContent = convertHtmlToText(String(htmlContent))
-    setPreviewContent({
-      ...previewContent,
-      [snippetKey]: textContent,
-    })
-  }
-
-  const savePreviewEdit = (snippetKey: string) => {
-    if (!content) return
-
-    const textContent = previewContent[snippetKey as keyof ClaudeResponse] || ''
-    const htmlContent = convertTextToHtml(String(textContent))
-
-    const updatedContent = {
-      ...content,
-      [snippetKey]: htmlContent,
-    }
-
-    setContent(updatedContent)
-    onContentUpdate?.(updatedContent)
-
-    // Update localStorage
-    const leadId = btoa(String(lead.email || lead.id)).replace(/[/+=]/g, '')
-    const data = {
-      ...updatedContent,
-      generatedAt: new Date().toISOString(),
-    }
-    localStorage.setItem(`lead_content_${leadId}`, JSON.stringify(data))
-
-    setEditingPreview(null)
-    setPreviewContent({})
-    toast.success('Saved to LocalStorage')
-  }
-
-  const cancelPreviewEdit = () => {
-    setEditingPreview(null)
-    setPreviewContent({})
+    return text
   }
 
   const startEditing = (snippetKey: string) => {
     setEditingSnippet(snippetKey)
+    // For HTML snippets, convert to text for easier editing
+    const isHtmlSnippet = SNIPPETS.find((s) => s.key === snippetKey)?.isHtml
+    const raw = content?.[snippetKey as keyof ClaudeResponse] || ''
+    const editValue = isHtmlSnippet
+      ? convertHtmlToText(String(raw))
+      : String(raw)
     setEditedContent({
       ...editedContent,
-      [snippetKey]: content?.[snippetKey as keyof ClaudeResponse] || '',
+      [snippetKey]: editValue,
     })
   }
 
   const saveEdit = (snippetKey: string) => {
     if (!content) return
 
+    // For HTML snippets, convert text back to HTML for storage
+    const isHtmlSnippet = SNIPPETS.find((s) => s.key === snippetKey)?.isHtml
+    const edited = editedContent[snippetKey as keyof ClaudeResponse]
+    const valueToStore = isHtmlSnippet
+      ? convertTextToHtml(String(edited || ''))
+      : String(edited || '')
+
     const updatedContent = {
       ...content,
-      [snippetKey]: editedContent[snippetKey as keyof ClaudeResponse],
+      [snippetKey]: valueToStore,
     }
 
     setContent(updatedContent)
@@ -1297,28 +1487,22 @@ Dan`
                   >
                     <Copy className="h-3 w-3" />
                   </Button>
-                  {editingPreview !== snippet.key && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => startEditing(String(snippet.key))}
-                      className="h-8 w-8 p-0"
-                    >
-                      <Edit className="h-3 w-3" />
-                    </Button>
-                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => startEditing(String(snippet.key))}
+                    className="h-8 w-8 p-0"
+                  >
+                    <Edit className="h-3 w-3" />
+                  </Button>
                 </>
               )}
-              {(isEditing || editingPreview === snippet.key) && (
+              {isEditing && (
                 <>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() =>
-                      editingPreview === snippet.key
-                        ? savePreviewEdit(String(snippet.key))
-                        : saveEdit(String(snippet.key))
-                    }
+                    onClick={() => saveEdit(String(snippet.key))}
                     className="h-8 w-8 p-0"
                   >
                     <Save className="h-3 w-3" />
@@ -1326,11 +1510,7 @@ Dan`
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={
-                      editingPreview === snippet.key
-                        ? cancelPreviewEdit
-                        : cancelEdit
-                    }
+                    onClick={cancelEdit}
                     className="h-8 w-8 p-0"
                   >
                     <X className="h-3 w-3" />
@@ -1341,78 +1521,37 @@ Dan`
           </div>
         </CardHeader>
         <CardContent className="pt-0">
-          {isEditing || editingPreview === snippet.key ? (
-            <Tabs defaultValue="preview" className="w-full">
-              <TabsList className="ml-auto w-fit">
-                <TabsTrigger value="preview">Preview</TabsTrigger>
-                <TabsTrigger value="html">HTML</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="preview" className="mt-4">
-                {isEditing ? (
-                  <Textarea
-                    value={String(editedContent[snippet.key] || '')}
-                    onChange={(e) =>
-                      setEditedContent({
-                        ...editedContent,
-                        [snippet.key]: e.target.value,
-                      })
-                    }
-                    rows={6}
-                    className="min-h-[80px] text-sm"
-                    placeholder="Edit the content here..."
-                  />
-                ) : snippet.isHtml ? (
-                  <div
-                    className="text-sm border rounded p-3 bg-muted/20 min-h-[80px] prose prose-sm max-w-none [&_li]:list-disc [&_li]:ml-4 [&_ul]:mb-2 [&_div]:mb-1"
-                    dangerouslySetInnerHTML={{
-                      __html: String(displayContent),
-                    }}
-                  />
-                ) : (
-                  <div className="text-sm border rounded p-3 bg-muted/20 min-h-[60px] whitespace-pre-wrap">
-                    {String(displayContent)}
-                  </div>
-                )}
-              </TabsContent>
-
-              <TabsContent value="html" className="mt-4">
-                {isEditing ? (
-                  <Textarea
-                    value={String(displayContent)}
-                    onChange={(e) =>
-                      setEditedContent({
-                        ...editedContent,
-                        [snippet.key]: e.target.value,
-                      })
-                    }
-                    rows={snippet.isHtml ? 8 : 6}
-                    className="min-h-[120px] font-mono text-sm"
-                    placeholder="Edit HTML content here..."
-                  />
-                ) : (
-                  <div className="text-sm border rounded p-3 bg-muted/20 min-h-[80px] font-mono whitespace-pre-wrap overflow-auto">
-                    {String(displayContent)}
-                  </div>
-                )}
-              </TabsContent>
-            </Tabs>
+          {isEditing ? (
+            <div className="mt-4">
+              <Textarea
+                value={String(editedContent[snippet.key] || '')}
+                onChange={(e) =>
+                  setEditedContent({
+                    ...editedContent,
+                    [snippet.key]: e.target.value,
+                  })
+                }
+                rows={8}
+                className="min-h-[120px] text-sm"
+                placeholder="Edit the content here..."
+              />
+            </div>
           ) : (
-            // Preview mode - always show rendered content
+            // Preview mode - show rendered content, click to edit
             <div className="space-y-2">
               {snippet.isHtml ? (
                 <div
-                  className="text-sm border rounded p-3 bg-muted/20 min-h-[80px] cursor-pointer hover:bg-muted/30 transition-colors"
+                  className="text-sm border rounded p-3 bg-muted/20 min-h-[80px] cursor-pointer hover:bg-muted/30 transition-colors prose prose-sm max-w-none [&_div]:mb-1"
                   dangerouslySetInnerHTML={{
                     __html: String(displayContent),
                   }}
-                  onClick={() => startPreviewEdit(String(snippet.key))}
+                  onClick={() => startEditing(String(snippet.key))}
                   title="Click to edit"
                 />
               ) : (
                 <div
-                  className="text-sm border rounded p-3 bg-muted/20 min-h-[60px] cursor-pointer hover:bg-muted/30 transition-colors"
-                  onClick={() => startPreviewEdit(String(snippet.key))}
+                  className="text-sm border rounded p-3 bg-muted/20 min-h-[60px] cursor-pointer hover:bg-muted/30 transition-colors whitespace-pre-wrap"
+                  onClick={() => startEditing(String(snippet.key))}
                   title="Click to edit"
                 >
                   {String(displayContent)}
@@ -1498,9 +1637,8 @@ Dan`
                   )
                   contentGenerationService.clearLeadContent(leadId)
 
-                  // Reset prompt
-                  const leadName = getFieldValue('contact') || 'this lead'
-                  setCustomPrompt(`Tell me about ${leadName}`)
+                  // Reset prompt to empty
+                  setCustomPrompt('')
 
                   // Show toast notification
                   toast.info('Content cleared - ready to regenerate')
@@ -1540,9 +1678,12 @@ Dan`
                       (snippet) => {
                         const displayContent =
                           editingSnippet === snippet.key
-                            ? editedSnippets[snippet.key] ||
-                              content[snippet.key]
-                            : content[snippet.key] || ''
+                            ? (editedContent[snippet.key] as
+                                | string
+                                | undefined) ||
+                              (content?.[snippet.key] as string | undefined)
+                            : (content?.[snippet.key] as string | undefined) ||
+                              ''
 
                         return (
                           <div key={`html-${snippet.key}`}>

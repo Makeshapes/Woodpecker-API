@@ -186,6 +186,11 @@ export function LeadDetail({
         </SheetHeader>
 
         <div className="space-y-6 px-8">
+          <ContentGeneration
+            lead={{ ...lead, ...standardData }}
+            onStatusUpdate={onStatusUpdate}
+          />
+
           {/* Standard Fields */}
           <Card>
             <CardHeader>
@@ -222,11 +227,6 @@ export function LeadDetail({
               </div>
             </CardContent>
           </Card>
-
-          <ContentGeneration
-            lead={{ ...lead, ...standardData }}
-            onStatusUpdate={onStatusUpdate}
-          />
           {/* Custom Fields */}
           {Object.keys(customData).length > 0 && (
             <Card>

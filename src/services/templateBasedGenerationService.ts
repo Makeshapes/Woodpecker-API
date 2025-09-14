@@ -13,7 +13,6 @@ export interface TemplateConfig {
   name: string
   description: string
   templates: EmailTemplate[]
-  footer: string
 }
 
 export class TemplateBasedGenerationService {
@@ -28,28 +27,7 @@ export class TemplateBasedGenerationService {
     const makeshapesTemplate: TemplateConfig = {
       name: 'makeshapes-outreach',
       description: 'Makeshapes Group Learning Outreach Sequence',
-      footer: `<table style="border-collapse: collapse !important; font-size: inherit;" role="presentation" border="0" cellspacing="0" cellpadding="0">
-          <tbody>
-            <tr>
-              <td style="padding: 0 12px 0 0; line-height: 0px;">
-                <img class="photo photo-size" style="border: 0px; height: 72px; line-height: 100%; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; min-width: 72px; width: 72px;" src="https://media-public.makeshapes.com/Email+images/Dan-Hibberd.png" alt="Email sender photo" width="90" height="90" />
-              </td>
-              <td>
-                <table style="border-collapse: collapse !important; font-size: inherit;" role="presentation" border="0" cellspacing="0" cellpadding="0">
-                  <tbody>
-                    <tr>
-                      <td class="name title-color" style="float: left; clear: left; font-weight: bold; color: #030303; font-family: Helvetica, sans-serif; font-size: 14px;">Dan Hibberd</td>
-                      <td class="title title-color" style="float: left; clear: left; color: #030303; font-family: Helvetica, sans-serif; font-size: 14px;">Co-founder</td>
-                      <td class="title title-color" style="float: left; clear: left; color: #030303; font-family: Helvetica, sans-serif; font-size: 14px;">
-                        <a class="website link-color" style="color: #030303 !important; text-decoration: underline !important; font-size: 14px !important; font-family: Helvetica, sans-serif !important; font-weight: inherit !important; line-height: inherit !important;" href="https://www.makeshapes.com">Makeshapes.com &mdash; Group learning delivery at scale</a>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </td>
-            </tr>
-          </tbody>
-        </table>`,
+
       templates: [
         {
           step: 1,
@@ -196,15 +174,14 @@ All the best,
           leadData
         )
         const body = this.substituteVariables(emailTemplate.body, leadData)
-        const footer = this.substituteVariables(template.footer, leadData)
 
         if (emailTemplate.body.trim() === '') {
           // Subject-only step (like Step 1)
           content[snippetKey] = subject
         } else {
-          // Full email with body and footer (no subject repetition)
+          // Full email with body (no subject repetition, no footer)
           content[snippetKey] =
-            `<div>${body.replace(/\n/g, '</div><div>')}</div><div><br></div>${footer}`
+            `<div>${body.replace(/\n/g, '</div><div>')}</div><div><br></div>`
         }
       } else {
         // For LinkedIn messages, just the body content
