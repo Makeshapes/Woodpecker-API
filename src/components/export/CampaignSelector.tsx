@@ -118,13 +118,13 @@ export function CampaignSelector({
             <SelectItem
               key={campaign.campaign_id}
               value={campaign.campaign_id.toString()}
-              className="py-3"
+              className="py-2"
             >
               <div className="flex items-center justify-between w-full pr-6">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2">
                     <span className="font-medium text-sm truncate">
-                      {campaign.name}
+                      {campaign.name} - {campaign.campaign_id}
                     </span>
                     <Badge
                       variant="secondary"
@@ -133,12 +133,12 @@ export function CampaignSelector({
                       {campaign.status}
                     </Badge>
                   </div>
-                  <div className="flex items-center gap-1 text-xs text-gray-500">
-                    <Users className="h-3 w-3" />
-                    <span>{formatProspectCount(campaign.prospects_count)}</span>
-                    <span className="mx-1">•</span>
-                    <span>ID: {campaign.campaign_id}</span>
-                  </div>
+                  {campaign.prospects_count !== undefined && (
+                    <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+                      <Users className="h-3 w-3" />
+                      <span>{formatProspectCount(campaign.prospects_count)}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </SelectItem>

@@ -17,7 +17,9 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { ContentGeneration } from '@/components/content-generation/ContentGeneration'
-import { ExportToWoodpecker } from '@/components/export/ExportToWoodpecker'
+import CampaignSelector from '@/components/export/CampaignSelector'
+import WoodpeckerService from '@/services/woodpeckerService'
+import { formatMultipleProspects, validateWoodpeckerProspect } from '@/utils/woodpeckerFormatter'
 import type { LeadData, ColumnMapping, LeadStatus } from '@/types/lead'
 import { Trash2, Copy, Download } from 'lucide-react'
 import { useState, useEffect, useMemo } from 'react'
@@ -43,6 +45,10 @@ export function LeadDetail({
   const [generatedContent, setGeneratedContent] =
     useState<ClaudeResponse | null>(null)
   const [copySuccess, setCopySuccess] = useState(false)
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string>('2356837')
+  const [selectedCampaignName, setSelectedCampaignName] = useState<string>('')
+  const [isExporting, setIsExporting] = useState(false)
+  const [woodpeckerService] = useState(() => new WoodpeckerService())
 
   // Group fields by type using useMemo to prevent infinite re-renders
   const { standardData, customData } = useMemo(() => {
@@ -145,17 +151,59 @@ export function LeadDetail({
     }
   }
 
-  const getGeneratedContent = (leadId: string) => {
-    if (leadId === lead.id && generatedContent) {
-      return generatedContent;
-    }
-    return undefined;
+  const handleCampaignChange = (campaignId: string, campaign: any) => {
+    setSelectedCampaignId(campaignId);
+    setSelectedCampaignName(campaign?.name || '');
   };
 
-  const handleExportComplete = (success: boolean) => {
-    if (success) {
-      onStatusUpdate?.(lead.id, 'exported');
-      toast.success('Lead successfully exported to Woodpecker campaign!');
+  const handleExportToCampaign = async () => {
+    if (!selectedCampaignId || !generatedContent) {
+      toast.error('Please select a campaign and ensure content is generated');
+      return;
+    }
+
+    setIsExporting(true);
+
+    try {
+      // Format the prospect with generated content
+      const prospects = formatMultipleProspects(
+        [lead],
+        (leadId) => leadId === lead.id && generatedContent ? generatedContent as any : undefined
+      );
+
+      // Validate the prospect
+      const validation = validateWoodpeckerProspect(prospects[0]);
+      if (!validation.isValid) {
+        toast.error(`Validation failed: ${validation.errors.join(', ')}`);
+        return;
+      }
+
+      // Export to Woodpecker
+      const result = await woodpeckerService.addProspectsToCampaign(
+        prospects,
+        parseInt(selectedCampaignId)
+      );
+
+      if (result.succeeded > 0) {
+        onStatusUpdate?.(lead.id, 'exported');
+        toast.success(
+          `Successfully exported to ${selectedCampaignName || 'campaign'}!`,
+          {
+            description: `Lead added to campaign ${selectedCampaignId}`,
+          }
+        );
+      } else {
+        toast.error('Export failed', {
+          description: result.errors[0]?.error || 'Unknown error occurred',
+        });
+      }
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('Export failed', {
+        description: error instanceof Error ? error.message : 'Unknown error occurred',
+      });
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -291,17 +339,23 @@ export function LeadDetail({
                       {copySuccess ? 'Copied!' : 'Copy JSON'}
                     </Button>
                     {lead.status !== 'exported' ? (
-                      <ExportToWoodpecker
-                        leads={[lead]}
-                        getGeneratedContent={getGeneratedContent}
-                        onExportComplete={handleExportComplete}
-                        trigger={
-                          <Button size="sm" className="gap-2">
-                            <Download className="h-4 w-4" />
-                            Export to Campaign
-                          </Button>
-                        }
-                      />
+                      <div className="flex items-center gap-2">
+                        <CampaignSelector
+                          value={selectedCampaignId}
+                          onValueChange={handleCampaignChange}
+                          className="w-64"
+                          placeholder="Select campaign..."
+                        />
+                        <Button
+                          size="sm"
+                          onClick={handleExportToCampaign}
+                          disabled={isExporting || !selectedCampaignId || !generatedContent}
+                          className="gap-2"
+                        >
+                          <Download className="h-4 w-4" />
+                          {isExporting ? 'Exporting...' : 'Export to Campaign'}
+                        </Button>
+                      </div>
                     ) : (
                       <Button variant="outline" size="sm" disabled>
                         Exported ✓
