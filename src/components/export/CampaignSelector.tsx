@@ -42,22 +42,28 @@ export function CampaignSelector({
     try {
       setLoading(true)
       setError(null)
-      console.log('📡 CampaignSelector: Calling woodpeckerService.getCampaigns()...')
+      console.log(
+        '📡 CampaignSelector: Calling woodpeckerService.getCampaigns()...'
+      )
       const campaignList = await woodpeckerService.getCampaigns()
       console.log('✅ CampaignSelector: Received campaigns:', {
         count: campaignList.length,
-        campaigns: campaignList
+        campaigns: campaignList,
       })
 
       // Sort campaigns by created_date (most recent first)
-      const sortedCampaigns = campaignList.sort((a, b) =>
-        new Date(b.created_date).getTime() - new Date(a.created_date).getTime()
+      const sortedCampaigns = campaignList.sort(
+        (a, b) =>
+          new Date(b.created_date).getTime() -
+          new Date(a.created_date).getTime()
       )
       console.log('📋 CampaignSelector: Sorted campaigns by date')
 
       setAllCampaigns(sortedCampaigns)
       setCampaigns(sortedCampaigns.slice(0, displayedCount))
-      console.log(`📊 CampaignSelector: Displaying first ${displayedCount} campaigns`)
+      console.log(
+        `📊 CampaignSelector: Displaying first ${displayedCount} campaigns`
+      )
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : 'Failed to load campaigns'
@@ -65,7 +71,7 @@ export function CampaignSelector({
       console.error('❌ CampaignSelector: Failed to load campaigns:', {
         error: err,
         message: errorMessage,
-        stack: err instanceof Error ? err.stack : undefined
+        stack: err instanceof Error ? err.stack : undefined,
       })
     } finally {
       setLoading(false)
@@ -85,7 +91,7 @@ export function CampaignSelector({
   }, [allCampaigns, displayedCount])
 
   const handleLoadMore = () => {
-    setDisplayedCount(prev => prev + 5)
+    setDisplayedCount((prev) => prev + 5)
   }
 
   const handleValueChange = (selectedValue: string) => {
@@ -93,7 +99,10 @@ export function CampaignSelector({
     const selectedCampaign = allCampaigns.find(
       (campaign) => campaign.campaign_id.toString() === selectedValue
     )
-    console.log('📌 CampaignSelector: Found campaign details:', selectedCampaign)
+    console.log(
+      '📌 CampaignSelector: Found campaign details:',
+      selectedCampaign
+    )
     onValueChange(selectedValue, selectedCampaign || null)
   }
 
@@ -199,7 +208,8 @@ export function CampaignSelector({
                   onClick={handleLoadMore}
                   className="w-full text-xs text-muted-foreground hover:text-foreground"
                 >
-                  Load more campaigns ({allCampaigns.length - displayedCount} remaining)
+                  Load more campaigns ({allCampaigns.length - displayedCount}{' '}
+                  remaining)
                 </Button>
               </div>
             )}
