@@ -157,7 +157,17 @@ export function LeadDetail({
   };
 
   const handleExportToCampaign = async () => {
+    console.log('🚀 LeadDetail: Export to Campaign clicked', {
+      selectedCampaignId,
+      hasGeneratedContent: !!generatedContent,
+      leadId: lead.id
+    });
+
     if (!selectedCampaignId || !generatedContent) {
+      console.error('❌ LeadDetail: Missing requirements for export', {
+        selectedCampaignId,
+        hasGeneratedContent: !!generatedContent
+      });
       toast.error('Please select a campaign and ensure content is generated');
       return;
     }
@@ -165,26 +175,52 @@ export function LeadDetail({
     setIsExporting(true);
 
     try {
+      console.log('📋 LeadDetail: Formatting prospects for export...');
+      console.log('📊 LeadDetail: Input data:', {
+        lead: lead,
+        generatedContent: generatedContent
+      });
+
       // Format the prospect with generated content
       const prospects = formatMultipleProspects(
         [lead],
         (leadId) => leadId === lead.id && generatedContent ? generatedContent as any : undefined
       );
+      console.log('✅ LeadDetail: Formatted prospects:', prospects);
+      console.log('🔍 LeadDetail: First prospect details:', {
+        email: prospects[0]?.email,
+        first_name: prospects[0]?.first_name,
+        last_name: prospects[0]?.last_name,
+        company: prospects[0]?.company,
+        title: prospects[0]?.title,
+        linkedin_url: prospects[0]?.linkedin_url,
+        hasSnippet1: !!prospects[0]?.snippet1,
+        hasSnippet2: !!prospects[0]?.snippet2,
+        snippet1Preview: prospects[0]?.snippet1?.substring(0, 50),
+        allKeys: Object.keys(prospects[0] || {})
+      });
 
+      console.log('🔍 LeadDetail: Validating prospect data...');
       // Validate the prospect
       const validation = validateWoodpeckerProspect(prospects[0]);
+      console.log('📊 LeadDetail: Validation results:', validation);
+
       if (!validation.isValid) {
+        console.error('❌ LeadDetail: Validation failed:', validation.errors);
         toast.error(`Validation failed: ${validation.errors.join(', ')}`);
         return;
       }
 
+      console.log('📡 LeadDetail: Calling Woodpecker API to export prospect...');
       // Export to Woodpecker
       const result = await woodpeckerService.addProspectsToCampaign(
         prospects,
         parseInt(selectedCampaignId)
       );
+      console.log('📈 LeadDetail: Export result:', result);
 
       if (result.succeeded > 0) {
+        console.log('✅ LeadDetail: Export successful!');
         onStatusUpdate?.(lead.id, 'exported');
         toast.success(
           `Successfully exported to ${selectedCampaignName || 'campaign'}!`,
@@ -193,6 +229,7 @@ export function LeadDetail({
           }
         );
       } else {
+        console.error('❌ LeadDetail: Export failed with no successes:', result);
         toast.error('Export failed', {
           description: result.errors[0]?.error || 'Unknown error occurred',
         });

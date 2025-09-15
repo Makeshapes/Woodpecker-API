@@ -64,7 +64,15 @@ export function ExportToWoodpecker({
   const [woodpeckerService] = useState(() => new WoodpeckerService());
 
   const handleCampaignSelect = useCallback(async (_campaignId: string, campaign: WoodpeckerCampaign | null) => {
-    if (!campaign) return;
+    console.log('🎯 ExportToWoodpecker: Campaign selected:', {
+      campaignId: _campaignId,
+      campaign: campaign
+    });
+
+    if (!campaign) {
+      console.warn('⚠️ ExportToWoodpecker: No campaign provided');
+      return;
+    }
 
     setState(prev => ({
       ...prev,
@@ -76,16 +84,29 @@ export function ExportToWoodpecker({
 
     // Check for duplicates and validate prospects
     try {
+      console.log('📋 ExportToWoodpecker: Formatting prospects for validation...');
       const prospects = formatMultipleProspects(leads, getGeneratedContent);
+      console.log('✅ ExportToWoodpecker: Formatted prospects:', {
+        count: prospects.length,
+        prospects: prospects
+      });
+
       const emails = prospects.map(p => p.email);
+      console.log('📧 ExportToWoodpecker: Extracted emails:', emails);
 
       // Check duplicates
+      console.log('🔍 ExportToWoodpecker: Checking for duplicate prospects in campaign', campaign.campaign_id);
       const duplicates = await woodpeckerService.checkDuplicateProspects(
         emails,
         campaign.campaign_id
       );
+      console.log('📊 ExportToWoodpecker: Duplicate check results:', {
+        duplicatesFound: duplicates.length,
+        duplicates: duplicates
+      });
 
       // Validate prospects
+      console.log('✔️ ExportToWoodpecker: Validating prospect data...');
       const validationResults = prospects.map(prospect => {
         const validation = validateWoodpeckerProspect(prospect);
         return {
@@ -95,6 +116,12 @@ export function ExportToWoodpecker({
       });
 
       const validationErrors = validationResults.filter(r => r.errors.length > 0);
+      console.log('📝 ExportToWoodpecker: Validation results:', {
+        totalProspects: prospects.length,
+        validProspects: prospects.length - validationErrors.length,
+        invalidProspects: validationErrors.length,
+        errors: validationErrors
+      });
 
       setState(prev => ({
         ...prev,
@@ -102,7 +129,11 @@ export function ExportToWoodpecker({
         validationErrors,
       }));
     } catch (error) {
-      console.error('Error checking duplicates/validation:', error);
+      console.error('❌ ExportToWoodpecker: Error checking duplicates/validation:', {
+        error: error,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
       setState(prev => ({
         ...prev,
         error: 'Failed to validate prospects. Please try again.',
@@ -111,27 +142,54 @@ export function ExportToWoodpecker({
   }, [leads, getGeneratedContent, woodpeckerService]);
 
   const handleExport = useCallback(async () => {
-    if (!state.selectedCampaign) return;
+    console.log('🚀 ExportToWoodpecker: Starting export process...');
+    console.log('📌 ExportToWoodpecker: Selected campaign:', state.selectedCampaign);
+
+    if (!state.selectedCampaign) {
+      console.error('❌ ExportToWoodpecker: No campaign selected, aborting export');
+      return;
+    }
 
     setState(prev => ({ ...prev, status: 'exporting', error: null }));
 
     try {
+      console.log('📋 ExportToWoodpecker: Formatting prospects for export...');
       const prospects = formatMultipleProspects(leads, getGeneratedContent);
+      console.log('✅ ExportToWoodpecker: Formatted prospects:', {
+        totalCount: prospects.length,
+        prospects: prospects
+      });
 
       // Filter out invalid prospects
+      console.log('🔍 ExportToWoodpecker: Filtering valid prospects...');
       const validProspects = prospects.filter(prospect => {
         const validation = validateWoodpeckerProspect(prospect);
+        if (!validation.isValid) {
+          console.warn('⚠️ ExportToWoodpecker: Invalid prospect:', {
+            email: prospect.email,
+            errors: validation.errors
+          });
+        }
         return validation.isValid;
       });
 
+      console.log('📊 ExportToWoodpecker: Valid prospects after filtering:', {
+        validCount: validProspects.length,
+        invalidCount: prospects.length - validProspects.length,
+        validProspects: validProspects
+      });
+
       if (validProspects.length === 0) {
+        console.error('❌ ExportToWoodpecker: No valid prospects to export');
         throw new Error('No valid prospects to export');
       }
 
+      console.log(`📡 ExportToWoodpecker: Calling API to add ${validProspects.length} prospects to campaign ${state.selectedCampaign.campaign_id}`);
       const progress = await woodpeckerService.addProspectsToCampaign(
         validProspects,
         state.selectedCampaign.campaign_id,
         (currentProgress) => {
+          console.log('📈 ExportToWoodpecker: Progress update:', currentProgress);
           setState(prev => ({
             ...prev,
             progress: currentProgress,
@@ -139,6 +197,7 @@ export function ExportToWoodpecker({
         }
       );
 
+      console.log('✅ ExportToWoodpecker: Export completed successfully:', progress);
       setState(prev => ({
         ...prev,
         status: 'completed',
@@ -155,6 +214,12 @@ export function ExportToWoodpecker({
       onExportComplete?.(true, progress);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      console.error('❌ ExportToWoodpecker: Export failed:', {
+        error: error,
+        message: errorMessage,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+
       setState(prev => ({
         ...prev,
         status: 'error',

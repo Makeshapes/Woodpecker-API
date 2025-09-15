@@ -53,13 +53,6 @@ import {
 } from '@/utils/tokenCounter'
 import type { FileAttachment } from '@/utils/fileHandler'
 import { processFile, formatFileSize } from '@/utils/fileHandler'
-import {
-  type PlainTextContent,
-  convertFromHtmlContent,
-  convertToHtmlContent,
-} from '@/utils/contentConverter'
-import PlainTextEditor from './PlainTextEditor'
-import ConversionButton from './ConversionButton'
 
 interface ContentGenerationProps {
   lead: LeadData
@@ -132,9 +125,6 @@ export function ContentGeneration({
   onStatusUpdate,
   onContentUpdate,
 }: ContentGenerationProps) {
-  // Feature flag for enhanced editing (Story 1.5)
-  const useEnhancedEditing = import.meta.env.VITE_ENABLE_ENHANCED_EDITING === 'true'
-
   const [isGenerating, setIsGenerating] = useState(false)
   const [content, setContent] = useState<ClaudeResponse | null>(null)
   const [editingSnippet, setEditingSnippet] = useState<string | null>(null)
@@ -151,21 +141,6 @@ export function ContentGeneration({
   const [fileAttachments, setFileAttachments] = useState<FileAttachment[]>([])
   const [isDragging, setIsDragging] = useState(false)
   const [generationMode, setGenerationMode] = useState<GenerationMode>('claude')
-
-  // Enhanced editing state (Story 1.5)
-  const [editingMode, setEditingMode] = useState<'html' | 'plaintext'>('plaintext')
-  const [plainTextContent, setPlainTextContent] = useState<PlainTextContent>({
-    snippet1: '',
-    snippet2: '',
-    snippet3: '',
-    snippet4: '',
-    snippet5: '',
-    snippet6: '',
-    snippet7: '',
-  })
-  const [editingPlainTextField, setEditingPlainTextField] = useState<string | null>(null)
-  const [showJsonOutput, setShowJsonOutput] = useState(false)
-  const [convertedHtmlContent, setConvertedHtmlContent] = useState<ClaudeResponse | null>(null)
 
   // Calculate token counts and pricing
   const tokenInfo = useMemo(() => {
@@ -258,33 +233,15 @@ export function ContentGeneration({
     [lead]
   )
 
-  // Load existing content when lead changes
+  // Load existing content on mount
   useEffect(() => {
-    console.log('🔄 [ContentGeneration] Lead changed, loading content for:', lead.email || lead.id)
     const leadId = btoa(String(lead.email || lead.id)).replace(/[/+=]/g, '')
     const existingContent = contentGenerationService.getLeadContent(leadId)
-
-    console.log('🔄 [ContentGeneration] Found existing content:', !!existingContent)
-
     if (existingContent) {
       setContent(existingContent)
       onContentUpdate?.(existingContent)
     }
-  }, [lead.email, lead.id, onContentUpdate])
 
-  // Convert HTML to plain text when enhanced editing is enabled and we have content but no plain text
-  useEffect(() => {
-    if (useEnhancedEditing && content && !plainTextContent.snippet1 && !plainTextContent.snippet2) {
-      console.log('🔄 [ContentGeneration] Converting HTML to plain text for enhanced editing')
-      const plainText = convertFromHtmlContent(content)
-      setPlainTextContent(plainText)
-      setEditingMode('plaintext')
-      setShowJsonOutput(false)
-    }
-  }, [useEnhancedEditing, content, plainTextContent.snippet1, plainTextContent.snippet2])
-
-  // Initialize system prompt
-  useEffect(() => {
     // Set default system prompt
     const defaultSystemPrompt = `# Makeshapes Cold Email Sequence Generator - System Prompt
 
@@ -645,7 +602,9 @@ Dan`
 
     setSystemPrompt(defaultSystemPrompt)
     setEditedSystemPrompt(defaultSystemPrompt)
-  }, [getFieldValue])
+
+    // Custom prompt starts empty
+  }, [lead.email, lead.id, getFieldValue, onContentUpdate])
 
   const generateContent = async () => {
     if (!lead.email || !lead.company) {
@@ -761,17 +720,6 @@ Dan`
 
         setContent(result.content)
         onContentUpdate?.(result.content)
-
-        // Enhanced editing: Convert HTML content to plain text for editing (Story 1.5)
-        if (useEnhancedEditing) {
-          console.log('🔄 [Enhanced Editing] Converting HTML content to plain text...')
-          const plainText = convertFromHtmlContent(result.content)
-          setPlainTextContent(plainText)
-          setEditingMode('plaintext')
-          setShowJsonOutput(false)
-          console.log('✅ [Enhanced Editing] Content converted to plain text for editing')
-        }
-
         console.log(
           '✅ Updating lead status to "drafted" for lead ID:',
           lead.id
@@ -1509,31 +1457,6 @@ Dan`
     }
   }
 
-  // Enhanced editing callbacks (Story 1.5)
-  const handlePlainTextContentChange = useCallback((newContent: PlainTextContent) => {
-    console.log('📝 [Enhanced Editing] Received new content:', newContent)
-    setPlainTextContent(newContent)
-    console.log('📝 [Enhanced Editing] Plain text content updated in state')
-  }, [])
-
-  const handleConversionComplete = useCallback((htmlContent: ClaudeResponse) => {
-    console.log('✅ [Enhanced Editing] Conversion to HTML completed')
-    setConvertedHtmlContent(htmlContent)
-    setContent(htmlContent)
-    onContentUpdate?.(htmlContent)
-
-    // Save converted content to localStorage
-    const leadId = btoa(String(lead.email || lead.id)).replace(/[/+=]/g, '')
-    localStorage.setItem(`lead_content_${leadId}`, JSON.stringify(htmlContent))
-
-    toast.success('Content converted to HTML format')
-  }, [lead.email, lead.id, onContentUpdate])
-
-  const handleShowJsonOutput = useCallback((show: boolean) => {
-    setShowJsonOutput(show)
-    console.log(`📄 [Enhanced Editing] JSON output ${show ? 'shown' : 'hidden'}`)
-  }, [])
-
   const renderContent = (snippet: SnippetConfig) => {
     const snippetContent = content?.[snippet.key]
     const isEditing = editingSnippet === snippet.key
@@ -1701,117 +1624,50 @@ Dan`
               <div>
                 <p className="text-sm font-medium">Generated Content</p>
                 <p className="text-xs text-muted-foreground">
-                  {useEnhancedEditing
-                    ? 'Edit content in plain text - click "Prepare JSON" when ready'
-                    : '7 snippets for 6-touchpoint email sequence'
-                  }
+                  7 snippets for 6-touchpoint email sequence
                 </p>
               </div>
-              <div className="flex items-center gap-2">
-                {useEnhancedEditing && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setEditingMode(editingMode === 'plaintext' ? 'html' : 'plaintext')}
-                    disabled={isGenerating}
-                    className="gap-2"
-                  >
-                    {editingMode === 'plaintext' ? 'View HTML' : 'Edit Plain Text'}
-                  </Button>
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    // Clear content state
-                    setContent(null)
-                    onContentUpdate?.(null)
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  // Clear content state
+                  setContent(null)
+                  onContentUpdate?.(null)
 
-                    // Enhanced editing: Reset plain text content
-                    if (useEnhancedEditing) {
-                      setPlainTextContent({
-                        snippet1: '',
-                        snippet2: '',
-                        snippet3: '',
-                        snippet4: '',
-                        snippet5: '',
-                        snippet6: '',
-                        snippet7: '',
-                      })
-                      setEditingMode('plaintext')
-                      setShowJsonOutput(false)
-                      setConvertedHtmlContent(null)
-                    }
+                  // Clear localStorage using service
+                  const leadId = btoa(String(lead.email || lead.id)).replace(
+                    /[/+=]/g,
+                    ''
+                  )
+                  contentGenerationService.clearLeadContent(leadId)
 
-                    // Clear localStorage using service
-                    const leadId = btoa(String(lead.email || lead.id)).replace(
-                      /[/+=]/g,
-                      ''
-                    )
-                    contentGenerationService.clearLeadContent(leadId)
+                  // Reset prompt to empty
+                  setCustomPrompt('')
 
-                    // Reset prompt to empty
-                    setCustomPrompt('')
-
-                    // Show toast notification
-                    toast.info('Content cleared - ready to regenerate')
-                  }}
-                  disabled={isGenerating}
-                  className="gap-2"
-                >
-                  <Sparkles className="h-4 w-4" />
-                  Regenerate
-                </Button>
-              </div>
+                  // Show toast notification
+                  toast.info('Content cleared - ready to regenerate')
+                }}
+                disabled={isGenerating}
+                className="gap-2"
+              >
+                <Sparkles className="h-4 w-4" />
+                Regenerate
+              </Button>
             </div>
 
-            {/* Enhanced editing workflow (Story 1.5) */}
-            {useEnhancedEditing ? (
-              <div className="space-y-6">
-                {editingMode === 'plaintext' ? (
-                  <>
-                    <PlainTextEditor
-                      content={plainTextContent}
-                      onChange={handlePlainTextContentChange}
-                      editingField={editingPlainTextField}
-                      onEditField={setEditingPlainTextField}
-                    />
+            <div className="space-y-4">{SNIPPETS.map(renderContent)}</div>
 
-                    <ConversionButton
-                      plainTextContent={plainTextContent}
-                      leadData={{
-                        first_name: getFieldValue('contact')?.split(' ')[0] || 'There',
-                        last_name: getFieldValue('contact')?.split(' ').slice(1).join(' ') || '',
-                        company: getFieldValue('company') || '',
-                        title: getFieldValue('title') || '',
-                        email: getFieldValue('email') || '',
-                        industry: getFieldValue('industry') || 'Technology',
-                        linkedin_url: getFieldValue('linkedin') || '',
-                        tags: ''
-                      }}
-                      onConversionComplete={handleConversionComplete}
-                      onShowJson={handleShowJsonOutput}
-                    />
-                  </>
-                ) : (
-                  <div className="space-y-4">{SNIPPETS.map(renderContent)}</div>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-4">{SNIPPETS.map(renderContent)}</div>
-            )}
-
-            {/* JSON Output Section - conditionally shown for enhanced editing */}
-            {(!useEnhancedEditing || showJsonOutput) && (
-              <Accordion type="single" collapsible className="w-full">
-                <AccordionItem value="json-output">
-                  <AccordionTrigger className="text-sm">
-                    <div className="flex items-center gap-2">
-                      <Hash className="h-4 w-4" />
-                      {useEnhancedEditing ? 'Export-Ready JSON & HTML Source' : 'Generated Content JSON & HTML Source'}
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent>
+            {/* JSON Output Section */}
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="json-output">
+                <AccordionTrigger className="text-sm">
+                  <div className="flex items-center gap-2">
+                    <Hash className="h-4 w-4" />
+                    Generated Content JSON & HTML Source
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
                   <div className="space-y-4">
                     <div>
                       <div className="text-xs text-muted-foreground mb-2">
@@ -1847,10 +1703,9 @@ Dan`
                       }
                     )}
                   </div>
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
-            )}
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </div>
         )}
       </CardContent>

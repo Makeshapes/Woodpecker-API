@@ -1,5 +1,6 @@
 import type { LeadData } from './templateService'
 import type { ClaudeResponse } from './claudeService'
+import { detectTimezone } from '@/utils/timezoneDetector'
 
 export interface EmailTemplate {
   step: number
@@ -151,6 +152,20 @@ All the best,
       throw new Error(`Template '${templateName}' not found`)
     }
 
+    // Detect timezone from location data
+    const detectedTimezone = detectTimezone(
+      leadData.city,
+      leadData.state,
+      leadData.country
+    );
+
+    console.log('🌍 [TemplateBasedService] Adding location and timezone data:', {
+      city: leadData.city,
+      state: leadData.state,
+      country: leadData.country,
+      detectedTimezone: detectedTimezone
+    });
+
     // Generate content for each step
     const content: GeneratedContent = {
       email: leadData.email,
@@ -159,6 +174,10 @@ All the best,
       company: leadData.company,
       title: leadData.title,
       linkedin_url: leadData.linkedin_url,
+      city: leadData.city,
+      state: leadData.state,
+      country: leadData.country,
+      timezone: detectedTimezone,
       tags: leadData.tags || this.generateTags(leadData),
       industry: leadData.industry,
       snippet1: '',

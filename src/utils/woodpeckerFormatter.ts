@@ -1,5 +1,6 @@
 import type { WoodpeckerProspect } from '@/services/woodpeckerService';
 import type { LeadData } from '@/types/lead';
+import { detectTimezone } from './timezoneDetector';
 
 interface GeneratedContent {
   snippet1?: string;
@@ -27,26 +28,67 @@ export function formatProspectForWoodpecker(
     customFieldMapping = {},
   } = options;
 
+  console.log('🔧 WoodpeckerFormatter: Formatting prospect', {
+    leadKeys: Object.keys(lead),
+    leadData: lead,
+    generatedContentKeys: generatedContent ? Object.keys(generatedContent) : null,
+    hasGeneratedContent: !!generatedContent
+  });
+
   // Extract basic prospect information from lead data
   const prospect: WoodpeckerProspect = {
     email: extractEmail(lead),
   };
 
   // Map standard lead fields to Woodpecker prospect fields
-  const firstName = extractFirstName(lead);
-  const lastName = extractLastName(lead);
+  // Try generated content first, then fall back to lead data
+  const firstName = (generatedContent?.first_name as string) || extractFirstName(lead);
+  const lastName = (generatedContent?.last_name as string) || extractLastName(lead);
+  const company = (generatedContent?.company as string) || extractCompany(lead);
+  const title = (generatedContent?.title as string) || extractTitle(lead);
+  const linkedinUrl = (generatedContent?.linkedin_url as string) || extractLinkedInUrl(lead);
+  const city = (generatedContent?.city as string) || extractCity(lead);
+  const state = (generatedContent?.state as string) || extractState(lead);
+  const country = (generatedContent?.country as string) || extractCountry(lead);
+
+  // Detect timezone - try generated content first, then detect from location data
+  const timezone = (generatedContent?.timezone as string) ||
+                   extractTimezone(lead) ||
+                   detectTimezone(city, state, country);
 
   if (firstName) prospect.first_name = firstName;
   if (lastName) prospect.last_name = lastName;
-
-  const company = extractCompany(lead);
   if (company) prospect.company = company;
-
-  const title = extractTitle(lead);
   if (title) prospect.title = title;
-
-  const linkedinUrl = extractLinkedInUrl(lead);
   if (linkedinUrl) prospect.linkedin_url = linkedinUrl;
+  if (city) prospect.city = city;
+  if (state) prospect.state = state;
+  if (country) prospect.country = country;
+  if (timezone) {
+    prospect.time_zone = timezone; // Woodpecker expects time_zone field
+  }
+
+  console.log('🎯 WoodpeckerFormatter: Extracted fields', {
+    firstName: firstName,
+    lastName: lastName,
+    company: company,
+    title: title,
+    linkedinUrl: linkedinUrl,
+    city: city,
+    state: state,
+    country: country,
+    time_zone: timezone,
+    fromGeneratedContent: {
+      first_name: generatedContent?.first_name,
+      last_name: generatedContent?.last_name,
+      company: generatedContent?.company,
+      title: generatedContent?.title,
+      city: generatedContent?.city,
+      state: generatedContent?.state,
+      country: generatedContent?.country,
+      time_zone: generatedContent?.timezone
+    }
+  });
 
   // Add generated content snippets
   if (generatedContent) {
@@ -128,7 +170,7 @@ function extractEmail(lead: LeadData): string {
 
 function extractFirstName(lead: LeadData): string | undefined {
   const firstNameFields = [
-    'firstName', 'first_name', 'FirstName', 'FIRST_NAME',
+    'first_name', 'firstName', 'FirstName', 'FIRST_NAME',
     'contactName', 'contact_name', 'name', 'Name'
   ];
 
@@ -146,7 +188,7 @@ function extractFirstName(lead: LeadData): string | undefined {
 
 function extractLastName(lead: LeadData): string | undefined {
   const lastNameFields = [
-    'lastName', 'last_name', 'LastName', 'LAST_NAME',
+    'last_name', 'lastName', 'LastName', 'LAST_NAME',
     'surname', 'Surname'
   ];
 
@@ -222,6 +264,71 @@ function extractLinkedInUrl(lead: LeadData): string | undefined {
   return undefined;
 }
 
+function extractCity(lead: LeadData): string | undefined {
+  const cityFields = [
+    'city', 'City', 'CITY',
+    'location_city', 'locationCity', 'Location City'
+  ];
+
+  for (const field of cityFields) {
+    const value = lead[field];
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return undefined;
+}
+
+function extractState(lead: LeadData): string | undefined {
+  const stateFields = [
+    'state', 'State', 'STATE',
+    'province', 'Province', 'PROVINCE',
+    'location_state', 'locationState', 'Location State'
+  ];
+
+  for (const field of stateFields) {
+    const value = lead[field];
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return undefined;
+}
+
+function extractCountry(lead: LeadData): string | undefined {
+  const countryFields = [
+    'country', 'Country', 'COUNTRY',
+    'location_country', 'locationCountry', 'Location Country'
+  ];
+
+  for (const field of countryFields) {
+    const value = lead[field];
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return undefined;
+}
+
+function extractTimezone(lead: LeadData): string | undefined {
+  const timezoneFields = [
+    'timezone', 'timeZone', 'time_zone', 'Timezone', 'TimeZone', 'TIME_ZONE',
+    'tz', 'TZ'
+  ];
+
+  for (const field of timezoneFields) {
+    const value = lead[field];
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return undefined;
+}
+
 function isValidEmail(email: string): boolean {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
@@ -239,12 +346,45 @@ function validateSnippetHtml(html: string, snippetNumber: number): string[] {
     errors.push(`Snippet ${snippetNumber} contains style tags (not recommended)`);
   }
 
-  // Check for unclosed tags (basic validation)
-  const openTags = html.match(/<[^\/][^>]*>/g) || [];
-  const closeTags = html.match(/<\/[^>]*>/g) || [];
+  // Check for unclosed tags (improved validation)
+  // First, remove self-closing tags and void elements that don't need closing
+  const cleanedHtml = html
+    .replace(/<(br|hr|img|input|meta|link|area|base|col|embed|source|track|wbr)(\s[^>]*)?\/?>/gi, '')
+    .replace(/<[^>]+\/>/g, ''); // Remove any self-closing tags like <tag />
 
-  if (openTags.length !== closeTags.length) {
-    errors.push(`Snippet ${snippetNumber} may have unclosed HTML tags`);
+  // Now count opening and closing tags
+  const openTags = cleanedHtml.match(/<([a-zA-Z][a-zA-Z0-9]*)\b[^>]*(?<!\/)>/g) || [];
+  const closeTags = cleanedHtml.match(/<\/([a-zA-Z][a-zA-Z0-9]*)\s*>/g) || [];
+
+  // Extract tag names for better validation
+  const openTagNames: string[] = openTags.map(tag => {
+    const match = tag.match(/<([a-zA-Z][a-zA-Z0-9]*)/);
+    return match ? match[1].toLowerCase() : '';
+  }).filter(name => name);
+
+  const closeTagNames: string[] = closeTags.map(tag => {
+    const match = tag.match(/<\/([a-zA-Z][a-zA-Z0-9]*)/);
+    return match ? match[1].toLowerCase() : '';
+  }).filter(name => name);
+
+  // Check if tags are properly balanced
+  const tagStack: string[] = [];
+  let hasError = false;
+
+  for (const tagName of openTagNames) {
+    tagStack.push(tagName);
+  }
+
+  for (const tagName of closeTagNames) {
+    const lastOpen = tagStack.pop();
+    if (lastOpen !== tagName) {
+      hasError = true;
+      break;
+    }
+  }
+
+  if (hasError || tagStack.length > 0) {
+    errors.push(`Snippet ${snippetNumber} may have unclosed or mismatched HTML tags`);
   }
 
   return errors;

@@ -12,6 +12,16 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  server: {
+    proxy: {
+      '/api/woodpecker': {
+        target: 'https://api.woodpecker.co/rest/v1',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/woodpecker/, ''),
+        secure: true,
+      },
+    },
+  },
   test: {
     globals: true,
     environment: 'jsdom',
