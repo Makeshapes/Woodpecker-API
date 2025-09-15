@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -18,7 +18,6 @@ import {
   Loader2,
   Upload,
   AlertTriangle,
-  X,
   RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -27,7 +26,6 @@ import WoodpeckerService from '@/services/woodpeckerService';
 import {
   formatMultipleProspects,
   validateWoodpeckerProspect,
-  createWoodpeckerExportSummary,
 } from '@/utils/woodpeckerFormatter';
 import type { LeadData } from '@/types/lead';
 import type { WoodpeckerCampaign, ExportProgress } from '@/services/woodpeckerService';
@@ -65,7 +63,7 @@ export function ExportToWoodpecker({
   });
   const [woodpeckerService] = useState(() => new WoodpeckerService());
 
-  const handleCampaignSelect = useCallback(async (campaignId: string, campaign: WoodpeckerCampaign | null) => {
+  const handleCampaignSelect = useCallback(async (_campaignId: string, campaign: WoodpeckerCampaign | null) => {
     if (!campaign) return;
 
     setState(prev => ({

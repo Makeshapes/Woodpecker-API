@@ -195,7 +195,7 @@ class WoodpeckerService {
               }
             });
           } else {
-            batch.forEach(prospect => {
+            batch.forEach(_prospect => {
               progress.current++;
               progress.succeeded++;
             });
@@ -211,11 +211,11 @@ class WoodpeckerService {
           }
         } catch (error) {
           // Handle batch failure
-          batch.forEach(prospect => {
+          batch.forEach(_prospect => {
             progress.current++;
             progress.failed++;
             progress.errors.push({
-              email: prospect.email,
+              email: _prospect.email,
               error: error instanceof Error ? error.message : 'Unknown error',
             });
           });

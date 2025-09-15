@@ -17,6 +17,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { ContentGeneration } from '@/components/content-generation/ContentGeneration'
+import { ExportToWoodpecker } from '@/components/export/ExportToWoodpecker'
 import type { LeadData, ColumnMapping, LeadStatus } from '@/types/lead'
 import { Trash2, Copy, Download } from 'lucide-react'
 import { useState, useEffect, useMemo } from 'react'
@@ -144,12 +145,19 @@ export function LeadDetail({
     }
   }
 
-  const handleExport = () => {
-    alert(
-      'This is where Woodpecker API would be. A user would be added to a campaign.'
-    )
-    onStatusUpdate?.(lead.id, 'exported')
-  }
+  const getGeneratedContent = (leadId: string) => {
+    if (leadId === lead.id && generatedContent) {
+      return generatedContent;
+    }
+    return undefined;
+  };
+
+  const handleExportComplete = (success: boolean) => {
+    if (success) {
+      onStatusUpdate?.(lead.id, 'exported');
+      toast.success('Lead successfully exported to Woodpecker campaign!');
+    }
+  };
 
   const getStatusColor = (status: string): string => {
     switch (status) {
@@ -283,14 +291,17 @@ export function LeadDetail({
                       {copySuccess ? 'Copied!' : 'Copy JSON'}
                     </Button>
                     {lead.status !== 'exported' ? (
-                      <Button
-                        size="sm"
-                        onClick={handleExport}
-                        className="gap-2"
-                      >
-                        <Download className="h-4 w-4" />
-                        Export to Campaign
-                      </Button>
+                      <ExportToWoodpecker
+                        leads={[lead]}
+                        getGeneratedContent={getGeneratedContent}
+                        onExportComplete={handleExportComplete}
+                        trigger={
+                          <Button size="sm" className="gap-2">
+                            <Download className="h-4 w-4" />
+                            Export to Campaign
+                          </Button>
+                        }
+                      />
                     ) : (
                       <Button variant="outline" size="sm" disabled>
                         Exported ✓
