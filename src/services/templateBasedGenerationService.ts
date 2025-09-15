@@ -15,6 +15,10 @@ export interface TemplateConfig {
   templates: EmailTemplate[]
 }
 
+interface GeneratedContent extends ClaudeResponse {
+  [key: string]: string // Allow dynamic snippet keys like snippet1, snippet2, etc.
+}
+
 export class TemplateBasedGenerationService {
   private templates: Map<string, TemplateConfig> = new Map()
 
@@ -32,20 +36,16 @@ export class TemplateBasedGenerationService {
         {
           step: 1,
           type: 'email',
-          subject:
-            'Fw: Meeting with {{FIRST_NAME}} - Delivering group learning at scale',
+          subject: 'Delivering group learning at scale',
           description: 'Day 1 - Email subject line only',
           body: '',
         },
         {
           step: 2,
           type: 'email',
-          subject:
-            'Re: Fw: Meeting with {{FIRST_NAME}} - Delivering group learning at scale',
-          description: 'Day 3 - Follow-up email with social proof',
+          subject: 'Delivering group learning at scale',
+          description: 'Day 1 - Full intro email',
           body: `Hi {{FIRST_NAME}},
-
-My colleague suggested I reach out (see below).
 
 We've built a new approach to group learning that's not dependent on facilitators. Our main focus has been supporting dispersed orgs facing these key challenges:
 
@@ -72,7 +72,7 @@ Curious if these are challenges you are facing at {{COMPANY}}. If so, interested
           type: 'email',
           subject:
             'Re: Fw: Meeting with {{FIRST_NAME}} - Delivering group learning at scale',
-          description: 'Step 3 - Email with social proof',
+          description: 'Day 3 - Email with social proof',
           body: `{{FIRST_NAME}}—for context, we're helping organisations like QBE Insurance, Westpac Bank, AirNZ, Zespri International and others deliver various formats of group learning (leader-led, peer-to-peer, train-the-trainer).
 
 Open to learning more?
@@ -84,12 +84,12 @@ Open to learning more?
           type: 'email',
           subject:
             'Re: Fw: Meeting with {{FIRST_NAME}} - Delivering group learning at scale',
-          description: 'Step 4 - Email with video case study',
+          description: 'Day 4 - Email with video case study',
           body: `{{FIRST_NAME}},
 
 I'm conscious there's a lot of noise in the learning tech space—everyone saying they have something unique. 
 
-If it helps to hear from someone in a similar role, check out this short video from Lane Hannah and his experience transforming delivery of group/social learning at a large Telco.
+If it helps to hear from someone in a similar role, check out this short video from Lane Hannah and his experience transforming delivery of group/social learning at a large Telecommunications company.
 
 https://www.makeshapes.com/resources/one-nz-case-study
 
@@ -102,7 +102,7 @@ If it piques your curiosity let's find time to have a call.
           type: 'email',
           subject:
             'Re: Fw: Meeting with {{FIRST_NAME}} - Delivering group learning at scale',
-          description: 'Step 5 - Demo offer email',
+          description: 'Day 5 - Demo offer email',
           body: `{{FIRST_NAME}}, sometimes it's easier to show, rather than tell. Just reply "yes" if you're interested in me sharing a demo link to an experience with you.
 
 Alternatively happy to book in some time and give you a live demo.
@@ -116,7 +116,7 @@ PS - If there is someone else in the team that I should speak with, let me know.
           type: 'email',
           subject:
             'Re: Fw: Meeting with {{FIRST_NAME}} - Delivering group learning at scale',
-          description: 'Final breakup email',
+          description: 'Day 7 - Final breakup email',
           body: `{{FIRST_NAME}},
 
 I'll stop reaching out for now, but wanted to leave you with this thought:
@@ -152,7 +152,7 @@ All the best,
     }
 
     // Generate content for each step
-    const content: any = {
+    const content: GeneratedContent = {
       email: leadData.email,
       first_name: leadData.first_name,
       last_name: leadData.last_name,
@@ -161,6 +161,13 @@ All the best,
       linkedin_url: leadData.linkedin_url,
       tags: leadData.tags || this.generateTags(leadData),
       industry: leadData.industry,
+      snippet1: '',
+      snippet2: '',
+      snippet3: '',
+      snippet4: '',
+      snippet5: '',
+      snippet6: '',
+      snippet7: '',
     }
 
     // Generate each snippet by substituting variables in templates
@@ -204,7 +211,7 @@ All the best,
       'snippets'
     )
 
-    return content as ClaudeResponse
+    return content
   }
 
   private substituteVariables(text: string, leadData: LeadData): string {

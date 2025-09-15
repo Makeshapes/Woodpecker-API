@@ -615,7 +615,7 @@ Dan`
     }
 
     // Check if any files are still uploading
-    const uploadingFiles = fileAttachments.filter(f => f.uploading)
+    const uploadingFiles = fileAttachments.filter((f) => f.uploading)
     if (uploadingFiles.length > 0) {
       setError(
         `Please wait for ${uploadingFiles.length} file(s) to finish uploading before generating content`
@@ -634,7 +634,7 @@ Dan`
     try {
       // Build prompt with file references or base64 data as fallback
       let userPrompt = customPrompt
-      let fileIds: string[] = []
+      const fileIds: string[] = []
 
       if (fileAttachments.length > 0) {
         userPrompt += '\n\n--- ATTACHED FILES ---\n'
@@ -795,26 +795,27 @@ Dan`
         if (attachment) {
           attachment.uploading = true
           setFileAttachments((prev) => [...prev, attachment])
-          
+
           // Try to upload to Claude Files API, fallback to base64 if CORS fails
           try {
             const fileId = await claudeService.uploadFile(file)
             // Update the attachment with the file_id and remove uploading state
-            setFileAttachments((prev) => 
-              prev.map(f => 
-                f.id === attachment.id 
+            setFileAttachments((prev) =>
+              prev.map((f) =>
+                f.id === attachment.id
                   ? { ...f, file_id: fileId, uploading: false }
                   : f
               )
             )
           } catch (uploadError) {
-            console.warn('Files API upload failed, using base64 fallback:', uploadError)
+            console.warn(
+              'Files API upload failed, using base64 fallback:',
+              uploadError
+            )
             // Fallback to base64 - just mark as ready without file_id
-            setFileAttachments((prev) => 
-              prev.map(f => 
-                f.id === attachment.id 
-                  ? { ...f, uploading: false }
-                  : f
+            setFileAttachments((prev) =>
+              prev.map((f) =>
+                f.id === attachment.id ? { ...f, uploading: false } : f
               )
             )
           }
@@ -846,7 +847,7 @@ Dan`
 
     const claudeService = createClaudeService()
     const files = Array.from(e.dataTransfer.files)
-    
+
     for (const file of files) {
       try {
         // First create the attachment with uploading state
@@ -854,26 +855,27 @@ Dan`
         if (attachment) {
           attachment.uploading = true
           setFileAttachments((prev) => [...prev, attachment])
-          
+
           // Try to upload to Claude Files API, fallback to base64 if CORS fails
           try {
             const fileId = await claudeService.uploadFile(file)
             // Update the attachment with the file_id and remove uploading state
-            setFileAttachments((prev) => 
-              prev.map(f => 
-                f.id === attachment.id 
+            setFileAttachments((prev) =>
+              prev.map((f) =>
+                f.id === attachment.id
                   ? { ...f, file_id: fileId, uploading: false }
                   : f
               )
             )
           } catch (uploadError) {
-            console.warn('Files API upload failed, using base64 fallback:', uploadError)
+            console.warn(
+              'Files API upload failed, using base64 fallback:',
+              uploadError
+            )
             // Fallback to base64 - just mark as ready without file_id
-            setFileAttachments((prev) => 
-              prev.map(f => 
-                f.id === attachment.id 
-                  ? { ...f, uploading: false }
-                  : f
+            setFileAttachments((prev) =>
+              prev.map((f) =>
+                f.id === attachment.id ? { ...f, uploading: false } : f
               )
             )
           }
@@ -888,8 +890,8 @@ Dan`
 
   const removeFile = async (id: string) => {
     const claudeService = createClaudeService()
-    const fileToRemove = fileAttachments.find(f => f.id === id)
-    
+    const fileToRemove = fileAttachments.find((f) => f.id === id)
+
     // Delete from Claude Files API if it has a file_id
     if (fileToRemove?.file_id) {
       try {
@@ -898,7 +900,7 @@ Dan`
         console.warn('Failed to delete file from Claude API:', error)
       }
     }
-    
+
     setFileAttachments((prev) => prev.filter((f) => f.id !== id))
   }
 
@@ -913,32 +915,33 @@ Dan`
         if (file) {
           try {
             const claudeService = createClaudeService()
-            
+
             // First create the attachment with uploading state
             const attachment = await processFile(file)
             if (attachment) {
               attachment.uploading = true
               setFileAttachments((prev) => [...prev, attachment])
-              
+
               // Try to upload to Claude Files API, fallback to base64 if CORS fails
               try {
                 const fileId = await claudeService.uploadFile(file)
                 // Update the attachment with the file_id and remove uploading state
-                setFileAttachments((prev) => 
-                  prev.map(f => 
-                    f.id === attachment.id 
+                setFileAttachments((prev) =>
+                  prev.map((f) =>
+                    f.id === attachment.id
                       ? { ...f, file_id: fileId, uploading: false }
                       : f
                   )
                 )
               } catch (uploadError) {
-                console.warn('Files API upload failed, using base64 fallback:', uploadError)
+                console.warn(
+                  'Files API upload failed, using base64 fallback:',
+                  uploadError
+                )
                 // Fallback to base64 - just mark as ready without file_id
-                setFileAttachments((prev) => 
-                  prev.map(f => 
-                    f.id === attachment.id 
-                      ? { ...f, uploading: false }
-                      : f
+                setFileAttachments((prev) =>
+                  prev.map((f) =>
+                    f.id === attachment.id ? { ...f, uploading: false } : f
                   )
                 )
               }
@@ -1065,9 +1068,11 @@ Dan`
                   <div
                     key={file.id}
                     className={`flex items-center gap-2 p-2 border rounded-md ${
-                      file.uploading ? 'bg-blue-50 border-blue-200' : 
-                      file.file_id ? 'bg-green-50 border-green-200' : 
-                      'bg-red-50 border-red-200'
+                      file.uploading
+                        ? 'bg-blue-50 border-blue-200'
+                        : file.file_id
+                          ? 'bg-green-50 border-green-200'
+                          : 'bg-red-50 border-red-200'
                     }`}
                   >
                     {file.uploading ? (
@@ -1332,10 +1337,10 @@ Dan`
   // Convert plain text to HTML format
   const convertTextToHtml = (text: string): string => {
     if (!text) return ''
-    
+
     // Split by double newlines first (paragraphs)
     const paragraphs = text.split('\n\n')
-    
+
     return paragraphs
       .map((paragraph) => paragraph.trim())
       .filter((paragraph) => paragraph.length > 0)
