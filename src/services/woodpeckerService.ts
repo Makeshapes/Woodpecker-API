@@ -66,7 +66,9 @@ class WoodpeckerService {
   private cacheTimeout: number = 5 * 60 * 1000; // 5 minutes
 
   constructor(apiKey?: string) {
-    const key = apiKey || import.meta.env.VITE_WOODPECKER_API_KEY;
+    // Note: This frontend service is deprecated and will be replaced by IPC calls to main process
+    // API key should no longer be accessible from frontend for security
+    const key = apiKey;
     console.log('🔧 WoodpeckerService: Initializing service...', {
       hasApiKey: !!key,
       apiKeyLength: key ? key.length : 0,
@@ -74,8 +76,8 @@ class WoodpeckerService {
       isDev: import.meta.env.DEV
     });
     if (!key) {
-      console.error('❌ WoodpeckerService: VITE_WOODPECKER_API_KEY environment variable is not set');
-      throw new Error('VITE_WOODPECKER_API_KEY environment variable is not set');
+      console.error('❌ WoodpeckerService: API key not provided - this service should be replaced with IPC calls');
+      throw new Error('Woodpecker API key not provided - use IPC calls to main process instead');
     }
     this.apiKey = key;
   }

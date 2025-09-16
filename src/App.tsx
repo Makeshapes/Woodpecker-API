@@ -3,6 +3,7 @@ import { ThemeProvider } from './components/theme-provider'
 import { Layout } from './components/layout/Layout'
 import { Import } from './pages/Import'
 import { Leads } from './pages/Leads'
+import { ElectronBridgeTest } from './components/test/ElectronBridgeTest'
 import { Toaster } from '@/components/ui/sonner'
 
 function App() {
@@ -13,6 +14,7 @@ function App() {
           <Route path="/" element={<Layout />}>
             <Route index element={<Leads />} />
             <Route path="import" element={<Import />} />
+            <Route path="test" element={<ElectronBridgeTest />} />
           </Route>
         </Routes>
       </Router>

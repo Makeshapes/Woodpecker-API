@@ -22,25 +22,24 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import CampaignSelector from './CampaignSelector';
-import WoodpeckerService from '@/services/woodpeckerService';
 import {
   formatMultipleProspects,
   validateWoodpeckerProspect,
 } from '@/utils/woodpeckerFormatter';
 import type { LeadData } from '@/types/lead';
-import type { WoodpeckerCampaign, ExportProgress } from '@/services/woodpeckerService';
+import type { WoodpeckerCampaign, WoodpeckerExportProgress } from '@/main/services/woodpeckerService';
 
 interface ExportToWoodpeckerProps {
   leads: LeadData[];
   getGeneratedContent: (leadId: string) => any;
   trigger?: React.ReactNode;
-  onExportComplete?: (success: boolean, results?: ExportProgress) => void;
+  onExportComplete?: (success: boolean, results?: WoodpeckerExportProgress) => void;
 }
 
 interface ExportState {
   status: 'idle' | 'confirming' | 'exporting' | 'completed' | 'error';
   selectedCampaign: WoodpeckerCampaign | null;
-  progress: ExportProgress | null;
+  progress: WoodpeckerExportProgress | null;
   error: string | null;
   duplicateProspects: string[];
   validationErrors: Array<{ email: string; errors: string[] }>;
@@ -61,7 +60,7 @@ export function ExportToWoodpecker({
     duplicateProspects: [],
     validationErrors: [],
   });
-  const [woodpeckerService] = useState(() => new WoodpeckerService());
+
 
   const handleCampaignSelect = useCallback(async (_campaignId: string, campaign: WoodpeckerCampaign | null) => {
     console.log('🎯 ExportToWoodpecker: Campaign selected:', {
@@ -95,11 +94,18 @@ export function ExportToWoodpecker({
       console.log('📧 ExportToWoodpecker: Extracted emails:', emails);
 
       // Check duplicates
-      console.log('🔍 ExportToWoodpecker: Checking for duplicate prospects in campaign', campaign.campaign_id);
-      const duplicates = await woodpeckerService.checkDuplicateProspects(
+      console.log('🔍 ExportToWoodpecker: Checking for duplicate prospects in campaign via IPC', campaign.campaign_id);
+      const duplicateResponse = await window.api.woodpecker.checkDuplicates({
         emails,
-        campaign.campaign_id
-      );
+        campaignId: campaign.campaign_id
+      });
+
+      if (!duplicateResponse.success) {
+        console.warn('⚠️ ExportToWoodpecker: Failed to check duplicates, proceeding without duplicate check:', duplicateResponse.error);
+        // Continue without duplicate checking if it fails
+      }
+
+      const duplicates = duplicateResponse.success ? duplicateResponse.data : [];
       console.log('📊 ExportToWoodpecker: Duplicate check results:', {
         duplicatesFound: duplicates.length,
         duplicates: duplicates
@@ -184,18 +190,25 @@ export function ExportToWoodpecker({
         throw new Error('No valid prospects to export');
       }
 
-      console.log(`📡 ExportToWoodpecker: Calling API to add ${validProspects.length} prospects to campaign ${state.selectedCampaign.campaign_id}`);
-      const progress = await woodpeckerService.addProspectsToCampaign(
-        validProspects,
-        state.selectedCampaign.campaign_id,
-        (currentProgress) => {
+      console.log(`📡 ExportToWoodpecker: Calling API via IPC to add ${validProspects.length} prospects to campaign ${state.selectedCampaign.campaign_id}`);
+      const response = await window.api.woodpecker.addProspects({
+        prospects: validProspects,
+        campaignId: state.selectedCampaign.campaign_id,
+        force: false,
+        onProgress: (currentProgress) => {
           console.log('📈 ExportToWoodpecker: Progress update:', currentProgress);
           setState(prev => ({
             ...prev,
             progress: currentProgress,
           }));
         }
-      );
+      });
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to add prospects to campaign')
+      }
+
+      const progress = response.data;
 
       console.log('✅ ExportToWoodpecker: Export completed successfully:', progress);
       setState(prev => ({
@@ -232,7 +245,7 @@ export function ExportToWoodpecker({
 
       onExportComplete?.(false);
     }
-  }, [state.selectedCampaign, leads, getGeneratedContent, woodpeckerService, onExportComplete]);
+  }, [state.selectedCampaign, leads, getGeneratedContent, onExportComplete]);
 
   const handleClose = () => {
     setOpen(false);

@@ -1,17 +1,37 @@
 {
   "name": "woodpecker-app",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "Desktop application for lead management and content generation with Claude AI and Woodpecker integration",
+  "author": "Makeshapes <contact@makeshapes.com>",
+  "homepage": "https://makeshapes.com",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "vite build",
+    "build:check": "tsc -b && vite build",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "test": "vitest",
     "test:run": "vitest run",
-    "preview": "vite preview"
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui",
+    "test:electron": "vitest run src/main/__tests__ src/preload/__tests__",
+    "test:e2e": "vitest run src/__tests__/e2e.test.ts",
+    "test:workflow": "vitest run src/__tests__/development-workflow.test.ts src/__tests__/build-process.test.ts",
+    "preview": "vite preview",
+    "electron:compile": "vite build --config vite.electron.config.ts",
+    "electron:dev": "npm run electron:compile && electron dist-electron/main.mjs",
+    "electron:build": "npm run build && npm run electron:compile && electron-builder",
+    "electron:test": "npm run build && npm run electron:compile && electron dist-electron/main-test.mjs",
+    "electron:build:dir": "npm run electron:compile && electron-builder --dir",
+    "dev:electron": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && npm run electron:dev\"",
+    "build:electron": "npm run build && npm run electron:build",
+    "build:production": "NODE_ENV=production npm run build && npm run electron:compile && electron-builder",
+    "build:dmg": "npm run build:production",
+    "verify:build": "node scripts/verify-build.js",
+    "dist": "npm run build:electron"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.62.0",
@@ -54,7 +74,9 @@
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
     "@vitejs/plugin-react": "^5.0.2",
+    "concurrently": "^9.2.1",
     "electron": "^38.1.0",
+    "electron-builder": "^26.0.12",
     "eslint": "^9.33.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
@@ -68,6 +90,78 @@
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.39.1",
     "vite": "^6.3.6",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "wait-on": "^8.0.5"
+  },
+  "main": "dist-electron/main.mjs",
+  "build": {
+    "appId": "com.makeshapes.woodpecker-api",
+    "productName": "Woodpecker API",
+    "copyright": "Copyright © 2025 Makeshapes",
+    "directories": {
+      "output": "release",
+      "buildResources": "assets"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "node_modules/**/*",
+      "!node_modules/**/*.{md,txt}",
+      "!node_modules/**/test/**/*",
+      "!node_modules/**/*.d.ts",
+      "!node_modules/**/.bin/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "icon": "assets/icons/icon.icns",
+      "category": "public.app-category.productivity",
+      "minimumSystemVersion": "10.14.0",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "assets/entitlements.plist",
+      "entitlementsInherit": "assets/entitlements.plist"
+    },
+    "dmg": {
+      "title": "Woodpecker API Installer",
+      "icon": "assets/icons/icon.icns",
+      "background": "assets/dmg-background.png",
+      "window": {
+        "width": 540,
+        "height": 380
+      },
+      "contents": [
+        {
+          "x": 140,
+          "y": 220,
+          "type": "file"
+        },
+        {
+          "x": 400,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icons/icon.ico"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets/icons/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   }
 }

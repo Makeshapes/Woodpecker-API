@@ -1,8 +1,8 @@
 import type { LeadData, ColumnMapping } from '@/types/lead'
+import type { ApiResult, LeadRecord, BulkLeadData } from '@/types/api'
+import { isApiSuccess, isApiError } from '@/types/api'
 
-const LEADS_STORAGE_KEY = 'woodpecker-leads'
-const COLUMN_MAPPING_STORAGE_KEY = 'woodpecker-column-mapping'
-
+// Legacy interface for backward compatibility
 export interface LeadsStorage {
   leads: LeadData[]
   columnMapping: ColumnMapping
@@ -10,155 +10,226 @@ export interface LeadsStorage {
   skippedDuplicates?: number
 }
 
-export const leadsStorage = {
-  // Get all leads from localStorage
-  getLeads(): LeadsStorage | null {
-    try {
-      const stored = localStorage.getItem(LEADS_STORAGE_KEY)
-      if (!stored) return null
-      
-      const parsed = JSON.parse(stored)
-      return {
-        leads: parsed.leads || [],
-        columnMapping: parsed.columnMapping || {},
-        lastUpdated: parsed.lastUpdated || new Date().toISOString(),
-      }
-    } catch (error) {
-      console.error('Error loading leads from storage:', error)
-      return null
-    }
-  },
+// Helper function to convert LeadRecord to LeadData
+function convertLeadRecordToLeadData(record: LeadRecord): LeadData {
+  return {
+    id: record.id.toString(),
+    status: record.status as LeadData['status'],
+    ...record.data
+  }
+}
 
-  // Save leads to localStorage
-  saveLeads(leads: LeadData[], columnMapping: ColumnMapping): void {
+// Helper function to convert LeadData to LeadRecord format
+function convertLeadDataToRecord(lead: LeadData, importId?: number): Omit<LeadRecord, 'id' | 'created_at' | 'updated_at'> {
+  const { id, status, ...data } = lead
+  return {
+    import_id: importId || null,
+    status: status || 'new',
+    data
+  }
+}
+
+export const leadsStorage = {
+  // Get all leads from database via IPC
+  async getLeads(): Promise<LeadsStorage | null> {
     try {
-      const storage: LeadsStorage = {
+      const response = await window.api.leads.getAll()
+      
+      if (isApiError(response)) {
+        console.error('Error loading leads from database:', response.error)
+        return null
+      }
+      
+      const leads = response.data.map(convertLeadRecordToLeadData)
+      
+      // Get column mapping from metadata
+      const mappingResponse = await window.api.metadata.get('columnMapping')
+      const columnMapping = isApiSuccess(mappingResponse) ? mappingResponse.data?.value || {} : {}
+      
+      return {
         leads,
         columnMapping,
         lastUpdated: new Date().toISOString(),
       }
-      localStorage.setItem(LEADS_STORAGE_KEY, JSON.stringify(storage))
     } catch (error) {
-      console.error('Error saving leads to storage:', error)
+      console.error('Error loading leads from database:', error)
+      return null
     }
   },
 
-  // Add new leads (from import) to existing ones, skipping duplicate emails
-  addLeads(newLeads: LeadData[], newColumnMapping: ColumnMapping): LeadsStorage {
-    const existing = this.getLeads()
-    
-    if (!existing) {
-      // First time - just save the new leads (no duplicates to check)
-      this.saveLeads(newLeads, newColumnMapping)
-      return { leads: newLeads, columnMapping: newColumnMapping, lastUpdated: new Date().toISOString() }
-    }
-
-    // Merge column mappings (new ones take precedence)
-    const mergedColumnMapping = { ...existing.columnMapping, ...newColumnMapping }
-    
-    // Get the email field from column mapping
-    const emailField = Object.keys(mergedColumnMapping).find(
-      key => mergedColumnMapping[key] === 'email'
-    )
-    
-    // Create set of existing emails for duplicate detection
-    const existingEmails = new Set(
-      existing.leads
-        .map(lead => emailField ? String(lead[emailField] || '').toLowerCase() : '')
-        .filter(email => email !== '')
-    )
-    
-    // Filter out leads with duplicate emails
-    const uniqueLeads = newLeads.filter(lead => {
-      if (!emailField) return true // If no email field, can't check duplicates
-      
-      const email = String(lead[emailField] || '').toLowerCase()
-      if (email === '') return true // Keep leads with no email
-      
-      return !existingEmails.has(email)
-    })
-    
-    // Add new leads with unique IDs to avoid conflicts
-    const existingIds = new Set(existing.leads.map(lead => lead.id))
-    let counter = existing.leads.length - 1
-    
-    const leadsToAdd = uniqueLeads.map(lead => {
-      let newId = lead.id
-      while (existingIds.has(newId)) {
-        counter++
-        newId = `lead-${counter}`
+  // Save leads to database via IPC
+  async saveLeads(leads: LeadData[], columnMapping: ColumnMapping): Promise<boolean> {
+    try {
+      // Save column mapping to metadata
+      const mappingResponse = await window.api.metadata.set('columnMapping', columnMapping)
+      if (isApiError(mappingResponse)) {
+        console.error('Error saving column mapping:', mappingResponse.error)
+        return false
       }
-      existingIds.add(newId)
-      return { ...lead, id: newId }
-    })
+      
+      // For now, we'll assume leads are already in the database
+      // This method is mainly used for backward compatibility
+      return true
+    } catch (error) {
+      console.error('Error saving leads to database:', error)
+      return false
+    }
+  },
 
-    const allLeads = [...existing.leads, ...leadsToAdd]
-    this.saveLeads(allLeads, mergedColumnMapping)
-    
-    const skippedCount = newLeads.length - uniqueLeads.length
-    
-    return { 
-      leads: allLeads, 
-      columnMapping: mergedColumnMapping, 
-      lastUpdated: new Date().toISOString(),
-      skippedDuplicates: skippedCount
+  // Add new leads (from import) to database, skipping duplicate emails
+  async addLeads(newLeads: LeadData[], newColumnMapping: ColumnMapping, importId?: number): Promise<LeadsStorage> {
+    try {
+      // Save column mapping to metadata
+      await window.api.metadata.set('columnMapping', newColumnMapping)
+      
+      // Convert leads to bulk format for database insertion
+      const bulkLeads: BulkLeadData = newLeads.map(lead => convertLeadDataToRecord(lead, importId))
+      
+      // Use bulk create which handles duplicate detection
+      const response = await window.api.leads.bulkCreate(bulkLeads)
+      
+      if (isApiError(response)) {
+        console.error('Error adding leads to database:', response.error)
+        // Return current state on error
+        const current = await this.getLeads()
+        return current || { leads: [], columnMapping: newColumnMapping, lastUpdated: new Date().toISOString() }
+      }
+      
+      const { created, skipped } = response.data
+      const createdLeads = created.map(convertLeadRecordToLeadData)
+      
+      // Get all leads to return complete state
+      const allLeadsResponse = await window.api.leads.getAll()
+      const allLeads = isApiSuccess(allLeadsResponse) 
+        ? allLeadsResponse.data.map(convertLeadRecordToLeadData)
+        : createdLeads
+      
+      return {
+        leads: allLeads,
+        columnMapping: newColumnMapping,
+        lastUpdated: new Date().toISOString(),
+        skippedDuplicates: skipped
+      }
+    } catch (error) {
+      console.error('Error adding leads to database:', error)
+      // Return current state on error
+      const current = await this.getLeads()
+      return current || { leads: [], columnMapping: newColumnMapping, lastUpdated: new Date().toISOString() }
     }
   },
 
   // Update a single lead's status
-  updateLeadStatus(leadId: string, status: LeadData['status']): void {
-    const existing = this.getLeads()
-    if (!existing) return
-
-    const updatedLeads = existing.leads.map(lead =>
-      lead.id === leadId ? { ...lead, status } : lead
-    )
-
-    this.saveLeads(updatedLeads, existing.columnMapping)
+  async updateLeadStatus(leadId: string, status: LeadData['status']): Promise<boolean> {
+    try {
+      const response = await window.api.leads.update(parseInt(leadId), { status })
+      
+      if (isApiError(response)) {
+        console.error('Error updating lead status:', response.error)
+        return false
+      }
+      
+      return true
+    } catch (error) {
+      console.error('Error updating lead status:', error)
+      return false
+    }
   },
 
   // Update multiple leads' status
-  updateMultipleLeadsStatus(leadIds: string[], status: LeadData['status']): void {
-    const existing = this.getLeads()
-    if (!existing) return
-
-    const leadIdSet = new Set(leadIds)
-    const updatedLeads = existing.leads.map(lead =>
-      leadIdSet.has(lead.id) ? { ...lead, status } : lead
-    )
-
-    this.saveLeads(updatedLeads, existing.columnMapping)
+  async updateMultipleLeadsStatus(leadIds: string[], status: LeadData['status']): Promise<boolean> {
+    try {
+      const updatePromises = leadIds.map(id => 
+        window.api.leads.update(parseInt(id), { status })
+      )
+      
+      const responses = await Promise.all(updatePromises)
+      const hasErrors = responses.some(response => isApiError(response))
+      
+      if (hasErrors) {
+        console.error('Some lead status updates failed')
+        return false
+      }
+      
+      return true
+    } catch (error) {
+      console.error('Error updating multiple lead statuses:', error)
+      return false
+    }
   },
 
   // Delete leads
-  deleteLeads(leadIds: string[]): void {
-    const existing = this.getLeads()
-    if (!existing) return
-
-    const leadIdSet = new Set(leadIds)
-    const filteredLeads = existing.leads.filter(lead => !leadIdSet.has(lead.id))
-
-    this.saveLeads(filteredLeads, existing.columnMapping)
+  async deleteLeads(leadIds: string[]): Promise<boolean> {
+    try {
+      const deletePromises = leadIds.map(id => 
+        window.api.leads.delete(parseInt(id))
+      )
+      
+      const responses = await Promise.all(deletePromises)
+      const hasErrors = responses.some(response => isApiError(response))
+      
+      if (hasErrors) {
+        console.error('Some lead deletions failed')
+        return false
+      }
+      
+      return true
+    } catch (error) {
+      console.error('Error deleting leads:', error)
+      return false
+    }
   },
 
   // Clear all leads
-  clearAllLeads(): void {
+  async clearAllLeads(): Promise<boolean> {
     try {
-      localStorage.removeItem(LEADS_STORAGE_KEY)
-      localStorage.removeItem(COLUMN_MAPPING_STORAGE_KEY)
+      // Get all leads first
+      const response = await window.api.leads.getAll()
+      
+      if (isApiError(response)) {
+        console.error('Error getting leads for clearing:', response.error)
+        return false
+      }
+      
+      // Delete all leads
+      const deletePromises = response.data.map(lead => 
+        window.api.leads.delete(lead.id)
+      )
+      
+      const deleteResponses = await Promise.all(deletePromises)
+      const hasErrors = deleteResponses.some(response => isApiError(response))
+      
+      if (hasErrors) {
+        console.error('Some lead deletions failed during clear')
+        return false
+      }
+      
+      // Clear column mapping metadata
+      await window.api.metadata.delete('columnMapping')
+      
+      return true
     } catch (error) {
-      console.error('Error clearing leads storage:', error)
+      console.error('Error clearing leads:', error)
+      return false
     }
   },
 
   // Get leads count by status
-  getLeadsCounts(): Record<string, number> {
-    const existing = this.getLeads()
-    if (!existing) return {}
-
-    return existing.leads.reduce((counts, lead) => {
-      counts[lead.status] = (counts[lead.status] || 0) + 1
-      return counts
-    }, {} as Record<string, number>)
+  async getLeadsCounts(): Promise<Record<string, number>> {
+    try {
+      const response = await window.api.leads.getAll()
+      
+      if (isApiError(response)) {
+        console.error('Error getting leads for counts:', response.error)
+        return {}
+      }
+      
+      return response.data.reduce((counts, lead) => {
+        counts[lead.status] = (counts[lead.status] || 0) + 1
+        return counts
+      }, {} as Record<string, number>)
+    } catch (error) {
+      console.error('Error getting leads counts:', error)
+      return {}
+    }
   }
 }

@@ -12,14 +12,14 @@ API keys and other sensitive configuration are managed through GitHub's secrets 
 
 Set these secrets in your GitHub repository settings (`Settings > Secrets and variables > Actions > New repository secret`):
 
-1. **VITE_CLAUDE_API_KEY**
+1. **CLAUDE_API_KEY**
    - Your Anthropic Claude API key
-   - Used for AI content generation
+   - Used for AI content generation (main process only)
    - Format: `sk-ant-api03-...`
 
-2. **VITE_WOODPECKER_API_KEY**
+2. **WOODPECKER_API_KEY**
    - Your Woodpecker.co API key
-   - Used for campaign integration
+   - Used for campaign integration (main process only)
    - Obtain from: Woodpecker > Marketplace > Integrations > API keys
 
 ### GitHub Repository Variables (Optional)
@@ -39,8 +39,8 @@ Set these variables for non-sensitive configuration (`Settings > Secrets and var
 
 2. Fill in your actual API keys in `.env`:
    ```bash
-   VITE_CLAUDE_API_KEY=your_actual_claude_api_key
-   VITE_WOODPECKER_API_KEY=your_actual_woodpecker_api_key
+   CLAUDE_API_KEY=your_actual_claude_api_key
+   WOODPECKER_API_KEY=your_actual_woodpecker_api_key
    ```
 
 3. **Never commit your `.env` file** - it's already in `.gitignore`

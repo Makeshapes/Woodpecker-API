@@ -1,9 +1,9 @@
-import { ClaudeService, createClaudeService } from './claudeService'
-import type { ClaudeResponse } from './claudeService'
+import type { ClaudeResponse } from '../main/services/claudeService'
 import { TemplateService, templateService } from './templateService'
 import type { LeadData } from './templateService'
 import { FallbackDataService, fallbackDataService } from './fallbackDataService'
 import { TemplateBasedGenerationService, templateBasedGenerationService } from './templateBasedGenerationService'
+import { contentStorage } from '@/utils/contentStorage'
 
 export interface ContentGenerationRequest {
   leadData: LeadData
@@ -29,7 +29,6 @@ export interface GenerationProgress {
 export type GenerationMode = 'claude' | 'templates' | 'fallback'
 
 export class ContentGenerationService {
-  private claudeService: ClaudeService
   private templateService: TemplateService
   private fallbackService: FallbackDataService
   private templateBasedService: TemplateBasedGenerationService
@@ -40,7 +39,6 @@ export class ContentGenerationService {
   private generationMode: GenerationMode = 'claude' // Default to Claude API
 
   constructor() {
-    this.claudeService = createClaudeService()
     this.templateService = templateService
     this.fallbackService = fallbackDataService
     this.templateBasedService = templateBasedGenerationService
@@ -56,7 +54,7 @@ export class ContentGenerationService {
     
     console.log('🎯 [ContentGenerationService] Starting generation for lead:', leadId)
     console.log('📊 [ContentGenerationService] Template:', templateName, 'Model:', modelId || 'default')
-    console.log('🔑 [ContentGenerationService] Has Claude Service:', !!this.claudeService)
+    console.log('🔑 [ContentGenerationService] Using IPC bridge for Claude API')
     console.log('🆕 [ContentGenerationService] Use Fallback mode:', this.useFallback)
     console.log('🛠️ [ContentGenerationService] Debug env var:', import.meta.env.VITE_ENABLE_DEBUG)
     console.log('🔒 [ContentGenerationService] Fallback will be used if API fails:', this.useFallback)
@@ -107,13 +105,11 @@ export class ContentGenerationService {
           console.log('📄 [ContentGenerationService] Prompt length:', prompt.length, 'characters')
           console.log('📝 [ContentGenerationService] Prompt preview (first 500 chars):', prompt.substring(0, 500) + '...')
 
-          // Generate content using Claude
-          console.log('🚀 [ContentGenerationService] Calling Claude API with retry...')
+          // Generate content using Claude via IPC
+          console.log('🚀 [ContentGenerationService] Calling Claude API via IPC bridge...')
           console.log('⚙️ [ContentGenerationService] API Config:', {
             modelId: modelId || 'default',
-            maxRetries: 3,
-            requestCount: this.claudeService.getRequestCount(),
-            remainingRequests: this.claudeService.getRemainingRequests()
+            maxRetries: 3
           })
           
           // Extract system prompt from custom_prompt if it exists
@@ -136,14 +132,21 @@ export class ContentGenerationService {
           const fileIds = (leadData as unknown as { file_ids?: string[] }).file_ids || []
           console.log('📎 [ContentGenerationService] File IDs for Claude API:', fileIds)
 
-          content = await this.claudeService.generateContentWithRetry(
-            userPrompt,
-            leadData as unknown as Record<string, unknown>,
-            3,
+          // Call Claude API via IPC bridge
+          const response = await window.api.claude.generateContent({
+            prompt: userPrompt,
+            leadData: leadData as unknown as Record<string, unknown>,
             modelId,
             systemPrompt,
-            fileIds
-          )
+            fileIds,
+            maxRetries: 3
+          })
+
+          if (!response.success) {
+            throw new Error(response.error.message || 'Claude API call failed')
+          }
+
+          content = response.data
           console.log('✅ [ContentGenerationService] Claude API returned content successfully')
           console.log('📦 [ContentGenerationService] Content keys:', Object.keys(content))
           console.log('📧 [ContentGenerationService] Generated snippets:', {
@@ -183,9 +186,9 @@ export class ContentGenerationService {
         }
       }
 
-      // Store in localStorage
-      console.log('💾 [ContentGenerationService] Persisting content to localStorage')
-      this.persistContentToStorage(leadId, content)
+      // Store in database via IPC
+      console.log('💾 [ContentGenerationService] Persisting content to database')
+      await this.persistContentToStorage(leadId, content)
       
       console.log('🎉 [ContentGenerationService] Successfully generated content for lead:', leadId)
       console.log('📦 [ContentGenerationService] Returning content with', Object.keys(content).length, 'fields')
@@ -258,22 +261,21 @@ export class ContentGenerationService {
   }
 
   // Get content for a specific lead
-  getLeadContent(leadId: string): ClaudeResponse | null {
-    const content = localStorage.getItem(`lead_content_${leadId}`)
-    return content ? JSON.parse(content) : null
+  async getLeadContent(leadId: string): Promise<ClaudeResponse | null> {
+    return await contentStorage.getLeadContent(leadId)
   }
 
   // Check if content exists for a lead
-  hasLeadContent(leadId: string): boolean {
-    return localStorage.getItem(`lead_content_${leadId}`) !== null
+  async hasLeadContent(leadId: string): Promise<boolean> {
+    return await contentStorage.hasLeadContent(leadId)
   }
 
   // Get generation status for a lead
-  getLeadGenerationStatus(
+  async getLeadGenerationStatus(
     leadId: string
-  ): 'not_generated' | 'generating' | 'completed' | 'failed' {
-    // Check localStorage first for completed content
-    if (this.hasLeadContent(leadId)) {
+  ): Promise<'not_generated' | 'generating' | 'completed' | 'failed'> {
+    // Check database first for completed content
+    if (await this.hasLeadContent(leadId)) {
       return 'completed'
     }
 
@@ -392,38 +394,48 @@ export class ContentGenerationService {
     return `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
   }
 
-  private persistContentToStorage(
+  private async persistContentToStorage(
     leadId: string,
     content: ClaudeResponse
-  ): void {
-    const key = `lead_content_${leadId}`
-    const data = {
-      ...content,
-      generatedAt: new Date().toISOString(),
+  ): Promise<void> {
+    const success = await contentStorage.persistContentToStorage(leadId, content)
+    if (!success) {
+      console.error('Failed to persist content to database')
+      throw new Error('Failed to persist content to database')
     }
-    localStorage.setItem(key, JSON.stringify(data))
   }
 
   // Clear content for a specific lead
-  clearLeadContent(leadId: string): void {
-    localStorage.removeItem(`lead_content_${leadId}`)
+  async clearLeadContent(leadId: string): Promise<boolean> {
+    return await contentStorage.clearLeadContent(leadId)
   }
 
   // Clear all generated content (for testing/reset)
-  clearAllContent(): void {
-    const keys = Object.keys(localStorage)
-    keys.forEach((key) => {
-      if (key.startsWith('lead_content_')) {
-        localStorage.removeItem(key)
-      }
-    })
+  async clearAllContent(): Promise<boolean> {
+    return await contentStorage.clearAllContent()
   }
 
-  // Get quota information from Claude service
-  getQuotaInfo() {
-    return {
-      requestCount: this.claudeService.getRequestCount(),
-      remainingRequests: this.claudeService.getRemainingRequests(),
+  // Get quota information from Claude service via IPC
+  async getQuotaInfo() {
+    try {
+      const response = await window.api.claude.getQuotaInfo()
+      if (response.success) {
+        return response.data
+      } else {
+        console.error('Failed to get quota info:', response.error)
+        return {
+          requestCount: 0,
+          remainingRequests: 100,
+          maxRequestsPerMinute: 100
+        }
+      }
+    } catch (error) {
+      console.error('Error getting quota info:', error)
+      return {
+        requestCount: 0,
+        remainingRequests: 100,
+        maxRequestsPerMinute: 100
+      }
     }
   }
 
@@ -460,6 +472,50 @@ export class ContentGenerationService {
   // Get a specific template config
   getTemplateConfig(name: string) {
     return this.templateBasedService.getTemplate(name)
+  }
+
+  // Upload file to Claude via IPC
+  async uploadFile(file: File): Promise<string> {
+    try {
+      console.log('📁 [ContentGenerationService] Uploading file via IPC:', file.name, file.size, 'bytes')
+
+      // Convert File to ArrayBuffer
+      const fileBuffer = await file.arrayBuffer()
+
+      const response = await window.api.claude.uploadFile({
+        fileBuffer,
+        filename: file.name,
+        mimeType: file.type
+      })
+
+      if (!response.success) {
+        throw new Error(response.error.message || 'File upload failed')
+      }
+
+      console.log('✅ [ContentGenerationService] File uploaded successfully:', response.data.fileId)
+      return response.data.fileId
+    } catch (error) {
+      console.error('❌ [ContentGenerationService] File upload error:', error)
+      throw error
+    }
+  }
+
+  // Delete file from Claude via IPC
+  async deleteFile(fileId: string): Promise<void> {
+    try {
+      console.log('🗑️ [ContentGenerationService] Deleting file via IPC:', fileId)
+
+      const response = await window.api.claude.deleteFile(fileId)
+
+      if (!response.success) {
+        throw new Error(response.error.message || 'File deletion failed')
+      }
+
+      console.log('✅ [ContentGenerationService] File deleted successfully')
+    } catch (error) {
+      console.error('❌ [ContentGenerationService] File deletion error:', error)
+      throw error
+    }
   }
 }
 

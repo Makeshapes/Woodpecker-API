@@ -8,8 +8,7 @@ import {
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { AlertCircle, Users, Loader2 } from 'lucide-react'
-import WoodpeckerService from '@/services/woodpeckerService'
-import type { WoodpeckerCampaign } from '@/services/woodpeckerService'
+import type { WoodpeckerCampaign } from '@/main/services/woodpeckerService'
 import { Button } from '../ui/button'
 
 interface CampaignSelectorProps {
@@ -35,7 +34,6 @@ export function CampaignSelector({
   const [displayedCount, setDisplayedCount] = useState(5)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [woodpeckerService] = useState(() => new WoodpeckerService())
 
   const loadCampaigns = useCallback(async () => {
     console.log('🚀 CampaignSelector: Starting to load campaigns...')
@@ -43,9 +41,15 @@ export function CampaignSelector({
       setLoading(true)
       setError(null)
       console.log(
-        '📡 CampaignSelector: Calling woodpeckerService.getCampaigns()...'
+        '📡 CampaignSelector: Calling Woodpecker API via IPC...'
       )
-      const campaignList = await woodpeckerService.getCampaigns()
+      const response = await window.api.woodpecker.getCampaigns()
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to load campaigns')
+      }
+
+      const campaignList = response.data
       console.log('✅ CampaignSelector: Received campaigns:', {
         count: campaignList.length,
         campaigns: campaignList,
@@ -77,7 +81,7 @@ export function CampaignSelector({
       setLoading(false)
       console.log('🏁 CampaignSelector: Loading complete')
     }
-  }, [woodpeckerService, displayedCount])
+  }, [displayedCount])
 
   useEffect(() => {
     loadCampaigns()

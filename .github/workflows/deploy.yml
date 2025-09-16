@@ -32,8 +32,8 @@ jobs:
         VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || 'http://localhost:3000/api' }}
         VITE_AUTH_ENABLED: ${{ vars.VITE_AUTH_ENABLED || 'false' }}
         VITE_ENABLE_DEBUG: ${{ vars.VITE_ENABLE_DEBUG || 'false' }}
-        VITE_CLAUDE_API_KEY: ${{ secrets.VITE_CLAUDE_API_KEY }}
-        VITE_WOODPECKER_API_KEY: ${{ secrets.VITE_WOODPECKER_API_KEY }}
+        CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
+        WOODPECKER_API_KEY: ${{ secrets.WOODPECKER_API_KEY }}
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4

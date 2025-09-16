@@ -23,7 +23,7 @@ describe('WoodpeckerService', () => {
 
     it('should throw error if API key is not set', () => {
       expect(() => new WoodpeckerService()).toThrow(
-        'VITE_WOODPECKER_API_KEY environment variable is not set'
+        'Woodpecker API key not provided - use IPC calls to main process instead'
       );
     });
   });

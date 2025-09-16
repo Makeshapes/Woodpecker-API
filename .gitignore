@@ -34,3 +34,17 @@ dist-ssr
 *.db
 *.db-shm
 *.db-wal
+
+# Environment files
+.env.development
+.env.production
+
+# NPM configuration
+.npmrc
+
+# Build outputs
+dist-electron/
+release/
+
+# Scripts directory (if contains sensitive/generated content)
+scripts/

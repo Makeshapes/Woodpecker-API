@@ -42,9 +42,11 @@ import {
   contentGenerationService,
   type GenerationMode,
 } from '@/services/contentGenerationService'
+import { contentStorage } from '@/utils/contentStorage'
 import type { LeadData } from '@/types/lead'
 import type { ClaudeResponse } from '@/services/claudeService'
 import { createClaudeService } from '@/services/claudeService'
+import { useContentOperations } from '@/hooks/useErrorHandler'
 import {
   estimateTokens,
   MODEL_PRICING,
@@ -137,6 +139,12 @@ export function ContentGeneration({
 
   const [isGenerating, setIsGenerating] = useState(false)
   const [content, setContent] = useState<ClaudeResponse | null>(null)
+
+  // Use error handling hook for content operations
+  const {
+    isLoading: isSaving,
+    executeWithErrorHandling
+  } = useContentOperations()
   const [editingSnippet, setEditingSnippet] = useState<string | null>(null)
   const [editedContent, setEditedContent] = useState<Partial<ClaudeResponse>>(
     {}
@@ -260,16 +268,20 @@ export function ContentGeneration({
 
   // Load existing content when lead changes
   useEffect(() => {
-    console.log('🔄 [ContentGeneration] Lead changed, loading content for:', lead.email || lead.id)
-    const leadId = btoa(String(lead.email || lead.id)).replace(/[/+=]/g, '')
-    const existingContent = contentGenerationService.getLeadContent(leadId)
+    const loadExistingContent = async () => {
+      console.log('🔄 [ContentGeneration] Lead changed, loading content for:', lead.email || lead.id)
+      const leadId = btoa(String(lead.email || lead.id)).replace(/[/+=]/g, '')
+      const existingContent = await contentGenerationService.getLeadContent(leadId)
 
-    console.log('🔄 [ContentGeneration] Found existing content:', !!existingContent)
+      console.log('🔄 [ContentGeneration] Found existing content:', !!existingContent)
 
-    if (existingContent) {
-      setContent(existingContent)
-      onContentUpdate?.(existingContent)
+      if (existingContent) {
+        setContent(existingContent)
+        onContentUpdate?.(existingContent)
+      }
     }
+    
+    loadExistingContent()
   }, [lead.email, lead.id, onContentUpdate])
 
   // Convert HTML to plain text when enhanced editing is enabled and we have content but no plain text
@@ -778,12 +790,8 @@ Dan`
         )
         onStatusUpdate?.(lead.id, 'drafted')
 
-        // Save to localStorage for persistence
-        const leadId = btoa(String(lead.email || lead.id)).replace(/[/+=]/g, '')
-        console.log(
-          '💾 Saving to localStorage with key:',
-          `lead_content_${leadId}`
-        )
+        // Content is already saved to database via the service
+        console.log('✅ Content saved to database via IPC')
       } else {
         console.error('❌ Generation failed:', result.error)
         setError(result.error || 'Failed to generate content')
@@ -1458,7 +1466,7 @@ Dan`
     })
   }
 
-  const saveEdit = (snippetKey: string) => {
+  const saveEdit = async (snippetKey: string) => {
     if (!content) return
 
     // For HTML snippets, convert text back to HTML for storage
@@ -1476,16 +1484,19 @@ Dan`
     setContent(updatedContent)
     onContentUpdate?.(updatedContent)
 
-    // Update localStorage
-    const leadId = btoa(String(lead.email || lead.id)).replace(/[/+=]/g, '')
-    const data = {
-      ...updatedContent,
-      generatedAt: new Date().toISOString(),
-    }
-    localStorage.setItem(`lead_content_${leadId}`, JSON.stringify(data))
+    // Save to database via content storage with error handling
+    const success = await executeWithErrorHandling(
+      () => contentStorage.persistContentToStorage(lead.id, updatedContent),
+      {
+        showToast: false, // We'll handle success toast manually
+        retryConfig: { maxAttempts: 2 }
+      }
+    )
 
-    setEditingSnippet(null)
-    toast.success('Saved to LocalStorage')
+    if (success) {
+      setEditingSnippet(null)
+      toast.success('Saved to database')
+    }
   }
 
   const cancelEdit = () => {
@@ -1516,18 +1527,25 @@ Dan`
     console.log('📝 [Enhanced Editing] Plain text content updated in state')
   }, [])
 
-  const handleConversionComplete = useCallback((htmlContent: ClaudeResponse) => {
+  const handleConversionComplete = useCallback(async (htmlContent: ClaudeResponse) => {
     console.log('✅ [Enhanced Editing] Conversion to HTML completed')
     setConvertedHtmlContent(htmlContent)
     setContent(htmlContent)
     onContentUpdate?.(htmlContent)
 
-    // Save converted content to localStorage
-    const leadId = btoa(String(lead.email || lead.id)).replace(/[/+=]/g, '')
-    localStorage.setItem(`lead_content_${leadId}`, JSON.stringify(htmlContent))
+    // Save converted content to database with error handling
+    const success = await executeWithErrorHandling(
+      () => contentStorage.persistContentToStorage(lead.id, htmlContent),
+      {
+        showToast: false, // We'll handle success toast manually
+        retryConfig: { maxAttempts: 2 }
+      }
+    )
 
-    toast.success('Content converted to HTML format')
-  }, [lead.email, lead.id, onContentUpdate])
+    if (success) {
+      toast.success('Content converted to HTML format')
+    }
+  }, [lead.email, lead.id, onContentUpdate, executeWithErrorHandling])
 
   const handleShowJsonOutput = useCallback((show: boolean) => {
     setShowJsonOutput(show)
@@ -1585,9 +1603,14 @@ Dan`
                     variant="ghost"
                     size="sm"
                     onClick={() => saveEdit(String(snippet.key))}
+                    disabled={isSaving}
                     className="h-8 w-8 p-0"
                   >
-                    <Save className="h-3 w-3" />
+                    {isSaving ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Save className="h-3 w-3" />
+                    )}
                   </Button>
                   <Button
                     variant="ghost"
@@ -1722,7 +1745,7 @@ Dan`
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
+                  onClick={async () => {
                     // Clear content state
                     setContent(null)
                     onContentUpdate?.(null)
@@ -1743,12 +1766,12 @@ Dan`
                       setConvertedHtmlContent(null)
                     }
 
-                    // Clear localStorage using service
+                    // Clear database content using service
                     const leadId = btoa(String(lead.email || lead.id)).replace(
                       /[/+=]/g,
                       ''
                     )
-                    contentGenerationService.clearLeadContent(leadId)
+                    await contentGenerationService.clearLeadContent(leadId)
 
                     // Reset prompt to empty
                     setCustomPrompt('')

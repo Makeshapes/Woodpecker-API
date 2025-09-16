@@ -24,6 +24,7 @@ import type { LeadData, ColumnMapping, LeadStatus } from '@/types/lead'
 import { Trash2, Copy, Download } from 'lucide-react'
 import { useState, useEffect, useMemo } from 'react'
 import type { ClaudeResponse } from '@/services/claudeService'
+import { contentStorage } from '@/utils/contentStorage'
 
 interface LeadDetailProps {
   lead: LeadData
@@ -48,6 +49,8 @@ export function LeadDetail({
   const [selectedCampaignId, setSelectedCampaignId] = useState<string>('2356837')
   const [selectedCampaignName, setSelectedCampaignName] = useState<string>('')
   const [isExporting, setIsExporting] = useState(false)
+  const [isLoadingContent, setIsLoadingContent] = useState(false)
+  const [contentError, setContentError] = useState<string | null>(null)
   const [woodpeckerService] = useState(() => new WoodpeckerService())
 
   // Group fields by type using useMemo to prevent infinite re-renders
@@ -85,29 +88,40 @@ export function LeadDetail({
   // Load generated content when modal opens
   useEffect(() => {
     if (open && (lead.status === 'drafted' || lead.status === 'exported')) {
-      const loadContent = () => {
-        const leadId = btoa(String(standardData.email || lead.id)).replace(
-          /[/+=]/g,
-          ''
-        )
-        const storedContent = localStorage.getItem(`lead_content_${leadId}`)
-        if (storedContent) {
-          try {
-            const parsed = JSON.parse(storedContent)
-            setGeneratedContent(parsed)
-          } catch (error) {
-            console.error('Failed to parse stored content:', error)
+      const loadContent = async () => {
+        try {
+          setIsLoadingContent(true)
+          setContentError(null)
+
+          const leadId = lead.id
+          const content = await contentStorage.getLeadContent(leadId)
+
+          if (content) {
+            setGeneratedContent(content)
+          } else {
+            setGeneratedContent(null)
           }
+        } catch (error) {
+          console.error('Failed to load content from database:', error)
+          setContentError('Failed to load content from database')
+          toast.error('Failed to load content')
+        } finally {
+          setIsLoadingContent(false)
         }
       }
 
       loadContent()
 
-      // Set up interval to refresh content every 2 seconds to catch edits
-      const interval = setInterval(loadContent, 2000)
+      // Set up interval to refresh content every 5 seconds to catch edits
+      // Increased interval to reduce database load
+      const interval = setInterval(loadContent, 5000)
       return () => clearInterval(interval)
+    } else {
+      // Clear content when modal closes or lead status changes
+      setGeneratedContent(null)
+      setContentError(null)
     }
-  }, [open, lead.status, lead.id, standardData.email])
+  }, [open, lead.status, lead.id])
 
   // Create the complete JSON object
   const createCompleteJson = () => {
@@ -282,6 +296,10 @@ export function LeadDetail({
           <ContentGeneration
             lead={{ ...lead, ...standardData }}
             onStatusUpdate={onStatusUpdate}
+            onContentUpdate={(content) => {
+              setGeneratedContent(content)
+              setContentError(null)
+            }}
           />
 
           {/* Standard Fields */}
@@ -386,7 +404,7 @@ export function LeadDetail({
                         <Button
                           size="sm"
                           onClick={handleExportToCampaign}
-                          disabled={isExporting || !selectedCampaignId || !generatedContent}
+                          disabled={isExporting || !selectedCampaignId || !generatedContent || isLoadingContent}
                           className="gap-2"
                         >
                           <Download className="h-4 w-4" />
@@ -403,9 +421,19 @@ export function LeadDetail({
               </CardHeader>
               <CardContent>
                 <div className="bg-muted/50 rounded-lg p-4 max-h-96 overflow-y-auto">
-                  <pre className="text-xs font-mono whitespace-pre-wrap">
-                    {JSON.stringify(createCompleteJson(), null, 2)}
-                  </pre>
+                  {isLoadingContent ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="text-sm text-muted-foreground">Loading content...</div>
+                    </div>
+                  ) : contentError ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="text-sm text-destructive">{contentError}</div>
+                    </div>
+                  ) : (
+                    <pre className="text-xs font-mono whitespace-pre-wrap">
+                      {JSON.stringify(createCompleteJson(), null, 2)}
+                    </pre>
+                  )}
                 </div>
               </CardContent>
             </Card>
