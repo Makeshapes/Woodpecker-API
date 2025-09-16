@@ -3,7 +3,7 @@
  * Story 1.5: Enhanced Content Editing Workflow with Plain Text UI
  */
 
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
@@ -13,7 +13,7 @@ import { Edit, Save, X, AlertCircle } from 'lucide-react'
 import {
   type PlainTextContent,
   type LightValidationResult,
-  validatePlainText
+  validatePlainText,
 } from '@/utils/contentConverter'
 
 interface PlainTextEditorProps {
@@ -102,12 +102,15 @@ export function PlainTextEditor({
   onChange,
   editingField,
   onEditField,
-  className = ''
+  className = '',
 }: PlainTextEditorProps) {
   const [validation, setValidation] = useState<LightValidationResult>({
     isValid: true,
-    errors: []
+    errors: [],
   })
+
+  // Ref for auto-resizing the multiline editor
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
 
   // Local state for editing - only updates parent on save
   const [editingValue, setEditingValue] = useState<string>('')
@@ -125,55 +128,97 @@ export function PlainTextEditor({
   }, [])
 
   // Handle field value change - only updates local state
-  const handleFieldChange = useCallback((field: keyof PlainTextContent, value: string) => {
-    setEditingValue(value)
-    // Validate the potential new content without saving it
-    const potentialContent = { ...content, [field]: value }
-    validateContent(potentialContent)
-  }, [content, validateContent])
+  const handleFieldChange = useCallback(
+    (field: keyof PlainTextContent, value: string) => {
+      setEditingValue(value)
+      // Validate the potential new content without saving it
+      const potentialContent = { ...content, [field]: value }
+      validateContent(potentialContent)
+    },
+    [content, validateContent]
+  )
+
+  // Auto-resize the textarea when editing text changes
+  useEffect(() => {
+    if (textareaRef.current) {
+      const el = textareaRef.current
+      el.style.height = 'auto'
+      el.style.height = Math.min(el.scrollHeight, 1200) + 'px'
+    }
+  }, [editingField, editingValue])
 
   // Handle save editing - now updates parent state
-  const handleSave = useCallback((field: keyof PlainTextContent) => {
-    console.log('💾 [PlainTextEditor] Saving field:', field, 'with value:', editingValue)
+  const handleSave = useCallback(
+    (field: keyof PlainTextContent) => {
+      console.log(
+        '💾 [PlainTextEditor] Saving field:',
+        field,
+        'with value:',
+        editingValue
+      )
 
-    // For save operation, we only validate the current field, not the entire form
-    // This allows users to save individual fields even if other fields are incomplete
-    const fieldConfig = FIELD_CONFIGS.find(config => config.key === field)
-    let canSave = true
+      // For save operation, we only validate the current field, not the entire form
+      // This allows users to save individual fields even if other fields are incomplete
+      const fieldConfig = FIELD_CONFIGS.find((config) => config.key === field)
+      let canSave = true
 
-    if (fieldConfig) {
-      // Check field-specific validation
-      if (fieldConfig.minLength && editingValue.length < fieldConfig.minLength) {
-        canSave = false
-        console.log('❌ [PlainTextEditor] Field too short:', editingValue.length, 'min:', fieldConfig.minLength)
+      if (fieldConfig) {
+        // Check field-specific validation
+        if (
+          fieldConfig.minLength &&
+          editingValue.length < fieldConfig.minLength
+        ) {
+          canSave = false
+          console.log(
+            '❌ [PlainTextEditor] Field too short:',
+            editingValue.length,
+            'min:',
+            fieldConfig.minLength
+          )
+        }
+        if (
+          fieldConfig.maxLength &&
+          editingValue.length > fieldConfig.maxLength
+        ) {
+          canSave = false
+          console.log(
+            '❌ [PlainTextEditor] Field too long:',
+            editingValue.length,
+            'max:',
+            fieldConfig.maxLength
+          )
+        }
+        if (fieldConfig.isSingleLine && editingValue.includes('\n')) {
+          canSave = false
+          console.log(
+            '❌ [PlainTextEditor] Single line field contains line breaks'
+          )
+        }
       }
-      if (fieldConfig.maxLength && editingValue.length > fieldConfig.maxLength) {
-        canSave = false
-        console.log('❌ [PlainTextEditor] Field too long:', editingValue.length, 'max:', fieldConfig.maxLength)
+
+      if (canSave) {
+        // Build new content with the current editing value
+        const newContent = { ...content, [field]: editingValue }
+        console.log('💾 [PlainTextEditor] New content object:', newContent)
+
+        // Update the parent with new content
+        onChange(newContent)
+        console.log(
+          '✅ [PlainTextEditor] Parent onChange called with new content'
+        )
+
+        // Exit editing mode immediately - the content prop will update and trigger a re-render
+        onEditField(null)
+        setEditingValue('')
+        console.log(
+          '✅ [PlainTextEditor] Save completed successfully, editing mode exited'
+        )
+      } else {
+        console.log('❌ [PlainTextEditor] Field validation failed, cannot save')
       }
-      if (fieldConfig.isSingleLine && editingValue.includes('\n')) {
-        canSave = false
-        console.log('❌ [PlainTextEditor] Single line field contains line breaks')
-      }
-    }
-
-    if (canSave) {
-      // Build new content with the current editing value
-      const newContent = { ...content, [field]: editingValue }
-      console.log('💾 [PlainTextEditor] New content object:', newContent)
-
-      // Update the parent with new content
-      onChange(newContent)
-      console.log('✅ [PlainTextEditor] Parent onChange called with new content')
-
-      // Exit editing mode immediately - the content prop will update and trigger a re-render
-      onEditField(null)
-      setEditingValue('')
-      console.log('✅ [PlainTextEditor] Save completed successfully, editing mode exited')
-    } else {
-      console.log('❌ [PlainTextEditor] Field validation failed, cannot save')
-    }
-  }, [content, editingValue, onChange, onEditField])
+    },
+    [content, editingValue, onChange, onEditField]
+  )
 
   // Handle cancel editing - resets local state
   const handleCancel = useCallback(() => {
@@ -184,31 +229,37 @@ export function PlainTextEditor({
   }, [onEditField, content, validateContent])
 
   // Get validation error for specific field
-  const getFieldError = useCallback((field: string) => {
-    return validation.errors.find(error => error.field === field)
-  }, [validation.errors])
+  const getFieldError = useCallback(
+    (field: string) => {
+      return validation.errors.find((error) => error.field === field)
+    },
+    [validation.errors]
+  )
 
   // Get character count info for field
-  const getCharacterInfo = useCallback((field: keyof PlainTextContent, config: FieldConfig) => {
-    const isEditing = editingField === field
-    const value = isEditing ? editingValue : (content[field] || '')
-    const length = value.length
-    const error = getFieldError(field)
+  const getCharacterInfo = useCallback(
+    (field: keyof PlainTextContent, config: FieldConfig) => {
+      const isEditing = editingField === field
+      const value = isEditing ? editingValue : content[field] || ''
+      const length = value.length
+      const error = getFieldError(field)
 
-    if (config.minLength || config.maxLength) {
-      let info = `${length}`
-      if (config.minLength && config.maxLength) {
-        info += ` / ${config.minLength}-${config.maxLength}`
-      } else if (config.maxLength) {
-        info += ` / ${config.maxLength}`
+      if (config.minLength || config.maxLength) {
+        let info = `${length}`
+        if (config.minLength && config.maxLength) {
+          info += ` / ${config.minLength}-${config.maxLength}`
+        } else if (config.maxLength) {
+          info += ` / ${config.maxLength}`
+        }
+
+        const isError = error && error.currentLength !== undefined
+        return { text: info, isError, length }
       }
 
-      const isError = error && (error.currentLength !== undefined)
-      return { text: info, isError, length }
-    }
-
-    return { text: `${length}`, isError: false, length }
-  }, [content, editingField, editingValue, getFieldError])
+      return { text: `${length}`, isError: false, length }
+    },
+    [content, editingField, editingValue, getFieldError]
+  )
 
   return (
     <div className={`space-y-4 ${className}`}>
@@ -226,11 +277,11 @@ export function PlainTextEditor({
         }
 
         // Check if current editing value is valid for saving
-        const canSaveField = !isEditing || (
-          (!config.minLength || editingValue.length >= config.minLength) &&
-          (!config.maxLength || editingValue.length <= config.maxLength) &&
-          (!config.isSingleLine || !editingValue.includes('\n'))
-        )
+        const canSaveField =
+          !isEditing ||
+          ((!config.minLength || editingValue.length >= config.minLength) &&
+            (!config.maxLength || editingValue.length <= config.maxLength) &&
+            (!config.isSingleLine || !editingValue.includes('\n')))
 
         return (
           <Card key={config.key} className="relative">
@@ -245,7 +296,7 @@ export function PlainTextEditor({
                   </Badge>
                   {(config.minLength || config.maxLength) && (
                     <Badge
-                      variant={charInfo.isError ? "destructive" : "outline"}
+                      variant={charInfo.isError ? 'destructive' : 'outline'}
                       className="text-xs"
                     >
                       {charInfo.text}
@@ -284,20 +335,26 @@ export function PlainTextEditor({
                   {config.isSingleLine ? (
                     <Input
                       value={displayValue}
-                      onChange={(e) => handleFieldChange(config.key, e.target.value)}
+                      onChange={(e) =>
+                        handleFieldChange(config.key, e.target.value)
+                      }
                       placeholder={config.placeholder}
-                      className={error ? "border-destructive" : ""}
+                      className={error ? 'border-destructive' : ''}
                       maxLength={config.maxLength}
                     />
                   ) : (
                     <Textarea
                       value={displayValue}
-                      onChange={(e) => handleFieldChange(config.key, e.target.value)}
+                      onChange={(e) =>
+                        handleFieldChange(config.key, e.target.value)
+                      }
                       placeholder={config.placeholder}
-                      className={`min-h-[100px] resize-y ${error ? "border-destructive" : ""}`}
+                      className={`min-h-[240px] md:min-h-[320px] resize-y ${error ? 'border-destructive' : ''}`}
+                      ref={textareaRef}
                       style={{
                         lineHeight: '1.5',
                         fontFamily: 'inherit',
+                        overflow: 'hidden',
                       }}
                     />
                   )}
@@ -310,11 +367,7 @@ export function PlainTextEditor({
                       <Save className="h-4 w-4 mr-1" />
                       Save
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={handleCancel}
-                    >
+                    <Button size="sm" variant="outline" onClick={handleCancel}>
                       <X className="h-4 w-4 mr-1" />
                       Cancel
                     </Button>
@@ -326,9 +379,7 @@ export function PlainTextEditor({
                   onClick={handleStartEdit}
                 >
                   {value ? (
-                    <div className="whitespace-pre-wrap text-sm">
-                      {value}
-                    </div>
+                    <div className="whitespace-pre-wrap text-sm">{value}</div>
                   ) : (
                     <div className="text-muted-foreground text-sm italic">
                       Click to add {config.label.toLowerCase()}...
