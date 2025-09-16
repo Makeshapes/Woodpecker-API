@@ -49,6 +49,8 @@ export function formatProspectForWoodpecker(
   const title = (generatedContent?.title as string) || extractTitle(lead)
   const linkedinUrl =
     (generatedContent?.linkedin_url as string) || extractLinkedInUrl(lead)
+  const website = (generatedContent?.website as string) || extractWebsite(lead)
+  const industry = (generatedContent?.industry as string) || extractIndustry(lead)
   const city = (generatedContent?.city as string) || extractCity(lead)
   const state = (generatedContent?.state as string) || extractState(lead)
   const country = (generatedContent?.country as string) || extractCountry(lead)
@@ -64,6 +66,8 @@ export function formatProspectForWoodpecker(
   if (company) prospect.company = company
   if (title) prospect.title = title
   if (linkedinUrl) prospect.linkedin_url = linkedinUrl
+  if (website) prospect.website = website
+  if (industry) prospect.industry = industry
   if (city) prospect.city = city
   if (state) prospect.state = state
   if (country) prospect.country = country
@@ -77,6 +81,8 @@ export function formatProspectForWoodpecker(
     company: company,
     title: title,
     linkedinUrl: linkedinUrl,
+    website: website,
+    industry: industry,
     city: city,
     state: state,
     country: country,
@@ -86,6 +92,9 @@ export function formatProspectForWoodpecker(
       last_name: generatedContent?.last_name,
       company: generatedContent?.company,
       title: generatedContent?.title,
+      linkedin_url: generatedContent?.linkedin_url,
+      website: generatedContent?.website,
+      industry: generatedContent?.industry,
       city: generatedContent?.city,
       state: generatedContent?.state,
       country: generatedContent?.country,
@@ -375,6 +384,56 @@ function extractTimezone(lead: LeadData): string | undefined {
   ]
 
   for (const field of timezoneFields) {
+    const value = lead[field]
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim()
+    }
+  }
+
+  return undefined
+}
+
+function extractWebsite(lead: LeadData): string | undefined {
+  const websiteFields = [
+    'website',
+    'Website',
+    'WEBSITE',
+    'company_website',
+    'companyWebsite',
+    'Company Website',
+    'url',
+    'URL',
+    'web_url',
+    'webUrl',
+  ]
+
+  for (const field of websiteFields) {
+    const value = lead[field]
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim()
+    }
+  }
+
+  return undefined
+}
+
+function extractIndustry(lead: LeadData): string | undefined {
+  const industryFields = [
+    'industry',
+    'Industry',
+    'INDUSTRY',
+    'sector',
+    'Sector',
+    'SECTOR',
+    'vertical',
+    'Vertical',
+    'VERTICAL',
+    'business_type',
+    'businessType',
+    'Business Type',
+  ]
+
+  for (const field of industryFields) {
     const value = lead[field]
     if (typeof value === 'string' && value.trim()) {
       return value.trim()

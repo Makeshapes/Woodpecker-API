@@ -150,19 +150,19 @@ export function useErrorHandler(options: UseErrorHandlerOptions = {}): UseErrorH
 
       const result = await withRetry(operation, opRetryConfig)
       
-      if ('error' in result) {
+      if (result && typeof result === 'object' && 'error' in result) {
         const appError = parseApiError(result)
-        
+
         if (opShowToast) {
           showErrorToast(appError, appError.retryable)
         }
-        
+
         setError(appError)
         return fallbackValue ?? null
       }
       
       onSuccess?.()
-      return result.data
+      return result && typeof result === 'object' && 'data' in result ? result.data : result
     } catch (error) {
       const appError = parseGenericError(error)
       

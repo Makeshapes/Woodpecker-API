@@ -87,13 +87,13 @@ export function CsvPreview({ csvData, columnMapping, onConfirm, onCancel }: CsvP
                 </span>
                 <ArrowRight className="w-3 h-3 text-muted-foreground" />
                 <span className={`font-medium ${isStandardField ? 'text-primary' : 'text-muted-foreground'}`}>
-                  {isStandardField ? mapped : 'preserved'}
+                  {isStandardField ? mapped : 'additional information'}
                 </span>
               </div>
             ))}
           </div>
           <p className="text-xs text-muted-foreground">
-            Standard fields are mapped for validation. All columns will be preserved in the imported data.
+            Standard fields are mapped for validation. All columns will be included as additional information in the imported data.
           </p>
         </div>
 

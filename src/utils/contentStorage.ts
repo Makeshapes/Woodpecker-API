@@ -7,19 +7,25 @@ function convertClaudeResponseToRecord(
   leadId: number,
   content: ClaudeResponse,
   touchpoint: number = 1
-): Omit<GeneratedContentRecord, 'id' | 'created_at' | 'updated_at'> {
+): Omit<GeneratedContentRecord, 'id' | 'generated_at' | 'approved_at'> {
   return {
     lead_id: leadId,
-    touchpoint,
-    content_type: 'email_sequence',
-    content: content,
-    status: 'generated'
+    touchpoint_number: touchpoint,
+    content_type: 'email',
+    content: JSON.stringify(content),
+    status: 'draft'
   }
 }
 
 // Helper function to convert GeneratedContentRecord to ClaudeResponse
 function convertRecordToClaudeResponse(record: GeneratedContentRecord): ClaudeResponse {
-  return record.content as ClaudeResponse
+  try {
+    return JSON.parse(record.content) as ClaudeResponse
+  } catch (error) {
+    console.error('Error parsing content from database:', error)
+    // Return a fallback object if parsing fails
+    return record.content as unknown as ClaudeResponse
+  }
 }
 
 export const contentStorage = {

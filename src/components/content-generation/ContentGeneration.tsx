@@ -42,7 +42,7 @@ import {
   contentGenerationService,
   type GenerationMode,
 } from '@/services/contentGenerationService'
-import type { LeadData } from '@/types/lead'
+import type { LeadData, ColumnMapping } from '@/types/lead'
 import type { ClaudeResponse } from '@/services/claudeService'
 import { createClaudeService } from '@/services/claudeService'
 import {
@@ -61,6 +61,7 @@ import PlainTextEditor from './PlainTextEditor'
 
 interface ContentGenerationProps {
   lead: LeadData
+  columnMapping?: ColumnMapping
   onStatusUpdate?: (leadId: string, status: LeadData['status']) => void
   onContentUpdate?: (content: ClaudeResponse | null) => void
 }
@@ -127,6 +128,7 @@ const SNIPPETS: SnippetConfig[] = [
 
 export function ContentGeneration({
   lead,
+  columnMapping,
   onStatusUpdate,
   onContentUpdate,
 }: ContentGenerationProps) {
@@ -232,11 +234,24 @@ export function ContentGeneration({
 
   const getFieldValue = useCallback(
     (field: string): string => {
-      // Try to get the value from lead data, handling potential column mapping
+      // If we have columnMapping, use it to find the actual field name
+      if (columnMapping) {
+        // Find the original field name that maps to the desired standard field
+        const originalFieldName = Object.keys(columnMapping).find(
+          (key) => columnMapping[key] === field
+        )
+
+        if (originalFieldName) {
+          const value = (lead as Record<string, unknown>)[originalFieldName]
+          if (value) return String(value)
+        }
+      }
+
+      // Fallback: Try to get the value directly from lead data
       const directValue = (lead as Record<string, unknown>)[field]
       if (directValue) return String(directValue)
 
-      // Try common variations
+      // Final fallback: Try common field name variations
       const variations = {
         company: ['company_name', 'organization', 'company'],
         contact: ['name', 'full_name', 'contact_name', 'first_name'],
@@ -244,6 +259,7 @@ export function ContentGeneration({
         title: ['job_title', 'position', 'title'],
         industry: ['industry', 'sector', 'vertical'],
         linkedin: ['linkedin_url', 'linkedin_profile', 'linkedin'],
+        website: ['website', 'company_website', 'url', 'web_url'],
       }
 
       const fieldVariations = variations[field as keyof typeof variations] || [
@@ -257,7 +273,7 @@ export function ContentGeneration({
 
       return ''
     },
-    [lead]
+    [lead, columnMapping]
   )
 
   // Load existing content when lead changes

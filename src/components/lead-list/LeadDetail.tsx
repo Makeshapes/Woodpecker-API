@@ -76,31 +76,65 @@ export function LeadDetail({
 
   // Group fields by type using useMemo to prevent infinite re-renders
   const { standardData, customData } = useMemo(() => {
-    const standardFields = [
+    console.log('🔍 [LeadDetail] Field categorization debug:', {
+      leadKeys: Object.keys(lead),
+      leadData: lead,
+      columnMapping: columnMapping,
+      hasColumnMapping: !!columnMapping,
+    })
+
+    const contactInfoFields = [
       'company',
       'contact',
       'email',
       'title',
-      'department',
       'phone',
       'city',
       'state',
       'country',
       'linkedin',
+      'industry',
+      'website',
     ]
     const standard: Record<string, string> = {}
     const custom: Record<string, string> = {}
 
-    // Separate standard and custom fields
+    // Separate contact info and additional fields
     Object.entries(lead).forEach(([key, value]) => {
       if (['id', 'status', 'selected'].includes(key)) return
 
       const mappedField = columnMapping[key]
-      if (mappedField && standardFields.includes(mappedField)) {
+
+      // Check if this is a direct standard field (already processed from DB)
+      const isDirectStandardField = contactInfoFields.includes(key)
+
+      console.log(`🔍 [LeadDetail] Processing field: ${key}`, {
+        originalValue: value,
+        mappedField: mappedField,
+        isDirectStandardField: isDirectStandardField,
+        isMappedToContactField: mappedField ? contactInfoFields.includes(mappedField) : false,
+      })
+
+      if (isDirectStandardField) {
+        // Direct standard field (company, email, title, etc.)
+        standard[key] = String(value)
+        console.log(`✅ [LeadDetail] Added to Contact Info (direct): ${key} = ${String(value)}`)
+      } else if (mappedField && contactInfoFields.includes(mappedField)) {
+        // CSV field mapped to standard field
         standard[mappedField] = String(value)
+        console.log(`✅ [LeadDetail] Added to Contact Info (mapped): ${mappedField} = ${String(value)}`)
       } else {
+        // Additional information
         custom[key] = String(value)
+        console.log(`📋 [LeadDetail] Added to Additional Info: ${key} = ${String(value)}`)
       }
+    })
+
+    console.log('🔍 [LeadDetail] Final categorization:', {
+      standardData: standard,
+      customData: custom,
+      standardDataKeys: Object.keys(standard),
+      customDataKeys: Object.keys(custom),
     })
 
     return { standardData: standard, customData: custom }
@@ -250,9 +284,26 @@ export function LeadDetail({
         generatedContent: generatedContent,
       })
 
-      // Format the prospect with generated content
+      // Create a properly mapped lead object with standardData fields
+      const mappedLead: LeadData = {
+        ...lead,
+        // Override with mapped standard fields
+        email: standardData.email || lead.email,
+        company: standardData.company || '',
+        contact: standardData.contact || '',
+        title: standardData.title || '',
+        phone: standardData.phone || '',
+        city: standardData.city || '',
+        state: standardData.state || '',
+        country: standardData.country || '',
+        linkedin: standardData.linkedin || '',
+        industry: standardData.industry || '',
+        website: standardData.website || '',
+      }
+
+      // Format the prospect with generated content using mapped data
       const prospects = formatMultipleProspects(
-        [lead],
+        [mappedLead],
         (leadId): GeneratedContent | undefined =>
           leadId === lead.id && generatedContent
             ? (generatedContent as unknown as GeneratedContent)
@@ -367,6 +418,7 @@ export function LeadDetail({
         <div className="space-y-6 px-8 pt-32">
           <ContentGeneration
             lead={{ ...lead, ...standardData }}
+            columnMapping={columnMapping}
             onStatusUpdate={onStatusUpdate}
           />
 

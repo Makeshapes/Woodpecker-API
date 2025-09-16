@@ -17,6 +17,8 @@ interface WoodpeckerProspect {
   state?: string;
   country?: string;
   time_zone?: string;  // Woodpecker expects time_zone, not timezone
+  website?: string;    // Company website
+  industry?: string;   // Industry field
   snippet1?: string;
   snippet2?: string;
   snippet3?: string;

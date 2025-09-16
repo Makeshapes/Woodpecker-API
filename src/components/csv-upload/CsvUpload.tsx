@@ -68,7 +68,7 @@ const STANDARD_FIELDS = {
     'email in lusha',
     'email in apollo',
   ],
-  title: ['title', 'job title', 'position', 'role', 'job_title', 'seniority'],
+  title: ['title', 'job title', 'position', 'role', 'job_title'],
   department: ['department', 'dept', 'division'],
   phone: ['phone', 'phone number', 'telephone', 'mobile'],
   city: ['city', 'location', 'locale'],
