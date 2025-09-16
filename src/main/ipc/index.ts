@@ -11,17 +11,17 @@ import { setupWoodpeckerHandlers } from './woodpeckerHandlers';
 /**
  * Setup all IPC handlers for database operations
  */
-export function setupIpcHandlers(): void {
+export function setupIpcHandlers(appDataPath: string): void {
   console.log('Setting up IPC handlers...');
   
   try {
     // Setup handlers for each table
-    setupImportsHandlers();
-    setupLeadsHandlers();
-    setupGeneratedContentHandlers();
-    setupMappingsHandlers();
-    setupAppMetadataHandlers();
-    setupAdvancedQueriesHandlers();
+    setupImportsHandlers(appDataPath);
+    setupLeadsHandlers(appDataPath);
+    setupGeneratedContentHandlers(appDataPath);
+    setupMappingsHandlers(appDataPath);
+    setupAppMetadataHandlers(appDataPath);
+    setupAdvancedQueriesHandlers(appDataPath);
 
     // Setup Claude API handlers
     setupClaudeHandlers();

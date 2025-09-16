@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, Menu, shell, dialog } from 'electron';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { setupIpcHandlers } from './ipc';
+import { setAppDataPath } from '../database/config';
 import { initializeDatabase } from '../database/init';
 import { logger } from './utils/logger';
 
@@ -16,14 +17,24 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // │ │ ├── main.js
 // │ │ └── preload.mjs
 // │
-process.env.APP_ROOT = path.join(__dirname, '../..');
+// Use app.getAppPath() for packaged apps to properly resolve paths within asar
+process.env.APP_ROOT = app.getAppPath();
 
-export const MAIN_DIST = path.join(process.env.APP_ROOT, 'dist-electron');
-export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist');
+// Debug logging (remove in production)
+// console.log('APP_ROOT:', process.env.APP_ROOT);
+// console.log('__dirname:', __dirname);
+// console.log('app.isPackaged:', app.isPackaged);
+
+// In packaged apps, __dirname points to the dist-electron directory inside the asar
+// We need to go up one level to get to the app root
+const appRoot = app.isPackaged ? path.dirname(__dirname) : process.env.APP_ROOT;
+
+export const MAIN_DIST = path.join(appRoot, 'dist-electron');
+export const RENDERER_DIST = path.join(appRoot, 'dist');
 export const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
 
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
-  ? path.join(process.env.APP_ROOT, 'public')
+  ? path.join(appRoot, 'public')
   : RENDERER_DIST;
 
 // Disable GPU Acceleration for Windows 7
@@ -210,6 +221,10 @@ async function createWindow() {
       win.webContents.openDevTools();
     } else {
       // Production mode
+      // Debug logging (remove in production)
+      // logger.info('Window', `Loading from file: ${indexHtml}`);
+      // logger.info('Window', `APP_ROOT: ${process.env.APP_ROOT}`);
+      // logger.info('Window', `RENDERER_DIST: ${RENDERER_DIST}`);
       await win.loadFile(indexHtml);
     }
   } catch (error) {
@@ -242,6 +257,10 @@ async function createWindow() {
 app.whenReady().then(async () => {
   try {
     logger.info('App', 'Application starting up');
+
+    // Get user data path and set it in the config
+    const userDataPath = app.getPath('userData');
+    setAppDataPath(userDataPath);
 
     // Initialize database with retry logic
     let dbInitialized = false;
@@ -287,7 +306,9 @@ app.whenReady().then(async () => {
     // Show error dialog to user
     dialog.showErrorBox(
       'Application Startup Error',
-      `Failed to start Woodpecker API: ${error instanceof Error ? error.message : String(error)}\n\nThe application will now exit.`
+      `Failed to start Woodpecker API: ${error instanceof Error ? error.message : String(error)}
+
+The application will now exit.`
     );
 
     app.quit();

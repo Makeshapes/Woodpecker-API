@@ -2,23 +2,16 @@ import Database from 'better-sqlite3';
 import { CREATE_TABLES_SQL, CREATE_INDEXES_SQL, INITIAL_METADATA } from './schema';
 import path from 'path';
 import fs from 'fs';
-
-// Safely import electron app if available
-let electronApp: any = null;
-try {
-  electronApp = require('electron')?.app;
-} catch {
-  // Electron not available (e.g., in tests or web environment)
-}
+import { getAppDataPath } from './config';
 
 /**
  * Get the database file path in the user's application data directory
  */
 export function getDatabasePath(): string {
+  const appDataPath = getAppDataPath();
   // For Electron app, use userData directory
-  if (electronApp && electronApp.getPath) {
-    const userDataPath = electronApp.getPath('userData');
-    return path.join(userDataPath, 'leads.db');
+  if (appDataPath) {
+    return path.join(appDataPath, 'leads.db');
   }
   
   // Fallback for development/testing

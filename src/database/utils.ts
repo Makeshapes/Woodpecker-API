@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3';
 import { getDatabase, closeDatabase } from './init';
+import { getAppDataPath } from './config';
 
 /**
  * Database connection pool for managing connections
@@ -12,7 +13,7 @@ class DatabasePool {
     if (this.connections.length > 0) {
       return this.connections.pop()!;
     }
-    return getDatabase();
+    return getDatabase(getAppDataPath());
   }
   
   releaseConnection(db: Database.Database): void {
