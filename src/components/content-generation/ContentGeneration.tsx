@@ -1180,18 +1180,12 @@ Dan`
         {generationMode !== 'templates' && (
           <Accordion type="single" collapsible className={`w-full`}>
             <AccordionItem value="system-prompt">
-              <AccordionTrigger
-                className="text-sm font-medium"
-                disabled={generationMode === 'templates'}
-              >
+              <AccordionTrigger className="text-sm font-medium">
                 <div className="flex items-center gap-2">
                   System Prompt Settings{' '}
-                  {generationMode === 'templates' && '(Not Used)'}
-                  {generationMode !== 'templates' && (
-                    <span className="text-xs text-muted-foreground">
-                      ({estimateTokens(systemPrompt).toLocaleString()} tokens)
-                    </span>
-                  )}
+                  <span className="text-xs text-muted-foreground">
+                    ({estimateTokens(systemPrompt).toLocaleString()} tokens)
+                  </span>
                 </div>
               </AccordionTrigger>
               <AccordionContent>
@@ -1247,20 +1241,13 @@ Dan`
 
             {/* Model Selection Accordion */}
             <AccordionItem value="model-settings">
-              <AccordionTrigger
-                className="text-sm font-medium"
-                disabled={generationMode === 'templates'}
-              >
+              <AccordionTrigger className="text-sm font-medium">
                 <div className="flex items-center gap-2">
                   Model:{' '}
-                  {generationMode === 'templates'
-                    ? 'Not Used'
-                    : tokenInfo.modelInfo?.displayName || 'Claude 3.5 Haiku'}
-                  {generationMode !== 'templates' && (
-                    <span className="text-xs text-muted-foreground">
-                      ({formatPrice(tokenInfo.pricing.totalCost)} estimated)
-                    </span>
-                  )}
+                  {tokenInfo.modelInfo?.displayName || 'Claude 3.5 Haiku'}
+                  <span className="text-xs text-muted-foreground">
+                    ({formatPrice(tokenInfo.pricing.totalCost)} estimated)
+                  </span>
                 </div>
               </AccordionTrigger>
               <AccordionContent>
