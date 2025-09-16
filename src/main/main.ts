@@ -31,7 +31,8 @@ const appRoot = app.isPackaged ? path.dirname(__dirname) : process.env.APP_ROOT;
 
 export const MAIN_DIST = path.join(appRoot, 'dist-electron');
 export const RENDERER_DIST = path.join(appRoot, 'dist');
-export const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
+// In dev mode, connect to the Vite dev server
+export const VITE_DEV_SERVER_URL = process.env.NODE_ENV !== 'production' ? 'http://localhost:5173' : undefined;
 
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
   ? path.join(appRoot, 'public')
@@ -47,13 +48,17 @@ if (process.platform === 'win32') {
   app.setAppUserModelId(app.getName());
 }
 
+// Enable remote debugging for Playwright MCP integration
+app.commandLine.appendSwitch('remote-debugging-port', '9222');
+logger.info('App', 'Remote debugging enabled on port 9222 for MCP integration');
+
 if (!app.requestSingleInstanceLock()) {
   app.quit();
   process.exit(0);
 }
 
 let win: BrowserWindow | null = null;
-const preload = path.join(__dirname, '../preload/preload.mjs');
+const preload = path.join(__dirname, 'preload.mjs');
 const indexHtml = path.join(RENDERER_DIST, 'index.html');
 
 /**
@@ -165,6 +170,7 @@ function createApplicationMenu() {
 }
 
 async function createWindow() {
+  logger.info('Window', `Creating window with preload: ${preload}`);
   win = new BrowserWindow({
     title: 'Woodpecker API',
     icon: path.join(process.env.VITE_PUBLIC, 'favicon.ico'),
@@ -286,7 +292,7 @@ app.whenReady().then(async () => {
     }
 
     // Setup IPC handlers
-    setupIpcHandlers();
+    setupIpcHandlers(userDataPath);
     logger.info('IPC', 'IPC handlers setup complete');
 
     // Create application menu

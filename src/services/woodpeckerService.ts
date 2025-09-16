@@ -73,13 +73,20 @@ class WoodpeckerService {
       hasApiKey: !!key,
       apiKeyLength: key ? key.length : 0,
       baseUrl: this.baseUrl,
-      isDev: import.meta.env.DEV
+      isDev: import.meta.env.DEV,
+      hasElectronAPI: typeof window !== 'undefined' && !!window.api
     });
-    if (!key) {
-      console.error('❌ WoodpeckerService: API key not provided - this service should be replaced with IPC calls');
+
+    // In Electron environment, we don't need an API key as we'll use IPC
+    if (typeof window !== 'undefined' && window.api) {
+      console.log('✅ WoodpeckerService: Running in Electron, will use IPC calls');
+      this.apiKey = 'ELECTRON_IPC'; // Placeholder, won't be used
+    } else if (!key) {
+      console.error('❌ WoodpeckerService: API key not provided and not in Electron environment');
       throw new Error('Woodpecker API key not provided - use IPC calls to main process instead');
+    } else {
+      this.apiKey = key;
     }
-    this.apiKey = key;
   }
 
   private getHeaders(): HeadersInit {
@@ -155,6 +162,22 @@ class WoodpeckerService {
       cacheExpiry: this.cacheExpiry,
       cacheValid: this.cacheExpiry ? Date.now() < this.cacheExpiry : false
     });
+
+    // Use IPC in Electron environment
+    if (typeof window !== 'undefined' && window.api && window.api.woodpecker) {
+      try {
+        console.log('📡 WoodpeckerService.getCampaigns: Using Electron IPC');
+        const response = await window.api.woodpecker.getCampaigns({ forceRefresh });
+        if ('error' in response) {
+          console.error('❌ WoodpeckerService.getCampaigns: IPC error:', response.error);
+          return this.getMockCampaigns();
+        }
+        return response.data || [];
+      } catch (error) {
+        console.error('❌ WoodpeckerService.getCampaigns: IPC failed:', error);
+        return this.getMockCampaigns();
+      }
+    }
 
     if (
       !forceRefresh &&

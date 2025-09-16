@@ -1,14 +1,13 @@
 import { useState, useCallback } from 'react'
-import { 
-  AppError, 
-  ErrorType, 
-  ErrorSeverity, 
-  parseApiError, 
-  parseGenericError, 
+import {
+  ErrorType,
+  ErrorSeverity,
+  parseApiError,
+  parseGenericError,
   showErrorToast,
-  withRetry,
-  type RetryConfig
+  withRetry
 } from '@/utils/errorHandling'
+import type { AppError, RetryConfig } from '@/utils/errorHandling'
 import type { ApiResult } from '@/types/api'
 
 // Hook state interface

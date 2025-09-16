@@ -11,7 +11,11 @@ export function setupAppMetadataHandlers(): void {
   ipcMain.handle('ipc:metadata:get', async (_, key: string) => {
     try {
       validateInput({ key }, ['key']);
-      return AppMetadataDAL.get(key);
+      const record = AppMetadataDAL.getByKey(key);
+      return {
+        success: true,
+        data: record
+      };
     } catch (error) {
       return handleIpcError(error, 'metadata:get');
     }
@@ -21,7 +25,12 @@ export function setupAppMetadataHandlers(): void {
   ipcMain.handle('ipc:metadata:set', async (_, key: string, value: any) => {
     try {
       validateInput({ key, value }, ['key', 'value']);
-      return AppMetadataDAL.set(key, value);
+      const valueString = typeof value === 'string' ? value : JSON.stringify(value);
+      const record = AppMetadataDAL.create(key, valueString);
+      return {
+        success: true,
+        data: record
+      };
     } catch (error) {
       return handleIpcError(error, 'metadata:set');
     }
@@ -31,7 +40,11 @@ export function setupAppMetadataHandlers(): void {
   ipcMain.handle('ipc:metadata:delete', async (_, key: string) => {
     try {
       validateInput({ key }, ['key']);
-      return AppMetadataDAL.delete(key);
+      const success = AppMetadataDAL.delete(key);
+      return {
+        success: true,
+        data: success
+      };
     } catch (error) {
       return handleIpcError(error, 'metadata:delete');
     }
@@ -40,7 +53,11 @@ export function setupAppMetadataHandlers(): void {
   // Get all metadata
   ipcMain.handle('ipc:metadata:getAll', async (_, options?: MetadataFilters) => {
     try {
-      return AppMetadataDAL.getAll(options);
+      const records = AppMetadataDAL.getAll(options);
+      return {
+        success: true,
+        data: records
+      };
     } catch (error) {
       return handleIpcError(error, 'metadata:getAll');
     }

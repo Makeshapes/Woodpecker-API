@@ -15,6 +15,8 @@ export type LeadStatus =
   | 'drafted'
   | 'approved'
   | 'exported'
+  | 'failed'
+  | 'deleted'
 
 export interface LeadData {
   id: string

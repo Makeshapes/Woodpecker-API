@@ -7,6 +7,7 @@ import { setupAppMetadataHandlers } from './app-metadata';
 import { setupAdvancedQueriesHandlers } from './advanced-queries';
 import { setupClaudeHandlers } from './claudeHandlers';
 import { setupWoodpeckerHandlers } from './woodpeckerHandlers';
+import { setupDatabaseHandlers } from './database';
 
 /**
  * Setup all IPC handlers for database operations
@@ -22,6 +23,9 @@ export function setupIpcHandlers(appDataPath: string): void {
     setupMappingsHandlers(appDataPath);
     setupAppMetadataHandlers(appDataPath);
     setupAdvancedQueriesHandlers(appDataPath);
+
+    // Setup database utility handlers
+    setupDatabaseHandlers();
 
     // Setup Claude API handlers
     setupClaudeHandlers();

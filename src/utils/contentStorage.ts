@@ -27,12 +27,17 @@ export const contentStorage = {
   async getLeadContent(leadId: string): Promise<ClaudeResponse | null> {
     try {
       const response = await window.api.content.getByLead(parseInt(leadId))
-      
+
       if (isApiError(response)) {
         console.error('Error getting lead content:', response.error)
         return null
       }
-      
+
+      // Ensure response.data exists and is an array before accessing [0]
+      if (!response.data || !Array.isArray(response.data) || response.data.length === 0) {
+        return null
+      }
+
       // Return the first content record if available
       const contentRecord = response.data[0]
       return contentRecord ? convertRecordToClaudeResponse(contentRecord) : null
@@ -46,12 +51,12 @@ export const contentStorage = {
   async hasLeadContent(leadId: string): Promise<boolean> {
     try {
       const response = await window.api.content.getByLead(parseInt(leadId))
-      
+
       if (isApiError(response)) {
         return false
       }
-      
-      return response.data.length > 0
+
+      return response.data && Array.isArray(response.data) && response.data.length > 0
     } catch (error) {
       console.error('Error checking lead content:', error)
       return false
@@ -89,14 +94,19 @@ export const contentStorage = {
   async clearLeadContent(leadId: string): Promise<boolean> {
     try {
       const response = await window.api.content.getByLead(parseInt(leadId))
-      
+
       if (isApiError(response)) {
         console.error('Error getting content for deletion:', response.error)
         return false
       }
-      
+
+      // Ensure response.data exists and is an array before processing
+      if (!response.data || !Array.isArray(response.data) || response.data.length === 0) {
+        return true // No content to delete, consider this successful
+      }
+
       // Delete all content records for this lead
-      const deletePromises = response.data.map(record => 
+      const deletePromises = response.data.map(record =>
         window.api.content.delete(record.id)
       )
       

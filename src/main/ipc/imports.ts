@@ -10,7 +10,7 @@ export function setupImportsHandlers(): void {
   // Create import
   ipcMain.handle('ipc:imports:create', async (_, data: Omit<ImportRecord, 'id' | 'created_at' | 'updated_at'>) => {
     try {
-      validateInput(data, ['filename', 'file_path', 'status']);
+      validateInput(data, ['filename', 'status']);
       return ImportsDAL.create(data);
     } catch (error) {
       return handleIpcError(error, 'imports:create');

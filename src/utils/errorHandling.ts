@@ -57,7 +57,7 @@ const sleep = (ms: number): Promise<void> =>
 
 // Parse API error response to AppError
 export function parseApiError(response: ApiResult<any>): AppError {
-  if ('error' in response && response.error) {
+  if (response && typeof response === 'object' && 'error' in response && response.error) {
     const { error } = response
     
     let type = ErrorType.UNKNOWN
@@ -234,7 +234,7 @@ export async function handleApiOperation<T>(
   try {
     const result = await withRetry(operation, retryConfig)
     
-    if ('error' in result) {
+    if (result && typeof result === 'object' && 'error' in result) {
       const appError = parseApiError(result)
       
       if (showToast) {

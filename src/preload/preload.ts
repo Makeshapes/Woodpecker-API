@@ -96,6 +96,11 @@ export interface ElectronAPI {
     clearCache: () => Promise<IpcResponse<{ success: boolean }>>;
     getQuotaInfo: () => Promise<IpcResponse<{ requestCount: number; remainingRequests: number; maxRequestsPerMinute: number }>>;
   };
+
+  // Database utility operations
+  database: {
+    clear: () => Promise<IpcResponse<{ success: boolean }>>;
+  };
 }
 
 // Create the API object with all database operations
@@ -163,16 +168,25 @@ const electronAPI: ElectronAPI = {
     clearCache: () => ipcRenderer.invoke('ipc:woodpecker:clearCache'),
     getQuotaInfo: () => ipcRenderer.invoke('ipc:woodpecker:getQuotaInfo'),
   },
+
+  database: {
+    clear: () => ipcRenderer.invoke('ipc:database:clear'),
+  },
 };
+
+// Log to confirm preload script is running
+console.log('🚀 Preload script executing...');
 
 // Expose the API to the renderer process through contextBridge
 contextBridge.exposeInMainWorld('api', electronAPI);
+console.log('✅ Exposed window.api');
 
 // Also expose some utility functions
 contextBridge.exposeInMainWorld('electronUtils', {
   platform: process.platform,
   versions: process.versions,
 });
+console.log('✅ Exposed window.electronUtils');
 
 // Type declaration for global window object (for TypeScript)
 declare global {

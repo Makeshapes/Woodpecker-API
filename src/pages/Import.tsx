@@ -21,10 +21,12 @@ export function Import() {
   const [csvData, setCsvData] = useState<CsvData | null>(null)
   const [columnMapping, setColumnMapping] = useState<ColumnMapping>({})
   const [showPreview, setShowPreview] = useState(false)
+  const [filename, setFilename] = useState<string>('')
 
-  const handleDataLoaded = (data: CsvData, mapping: ColumnMapping) => {
+  const handleDataLoaded = (data: CsvData, mapping: ColumnMapping, filename: string) => {
     setCsvData(data)
     setColumnMapping(mapping)
+    setFilename(filename)
     setShowPreview(true)
   }
 
@@ -34,6 +36,7 @@ export function Import() {
       state: {
         csvData: data,
         columnMapping: mapping,
+        filename: filename,
       },
     })
   }
@@ -175,7 +178,7 @@ export function Import() {
       Tag: 'tags',
     }
 
-    handleDataLoaded(demoData, demoMapping)
+    handleDataLoaded(demoData, demoMapping, 'demo_import.csv')
   }
 
   return (

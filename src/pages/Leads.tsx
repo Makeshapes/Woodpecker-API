@@ -12,7 +12,11 @@ import { useLeadOperations } from '@/hooks/useErrorHandler'
 interface LocationState {
   csvData: CsvData
   columnMapping: ColumnMapping
+  filename?: string
 }
+
+// Module-level flag to prevent double execution in React StrictMode
+let isImportProcessing = false
 
 export function Leads() {
   const location = useLocation()
@@ -32,17 +36,46 @@ export function Leads() {
 
   // Initialize leads - either from CSV import or from storage
   useEffect(() => {
+    console.log('🔄 useEffect triggered, isImportProcessing:', isImportProcessing)
+    console.log('🔄 location.state:', !!location.state)
+
     const initializeLeads = async () => {
+      const state = location.state as LocationState
+
+      console.log('🔍 initializeLeads called')
+      console.log('🔍 state?.csvData:', !!state?.csvData)
+      console.log('🔍 state?.columnMapping:', !!state?.columnMapping)
+
       try {
         setLoading(true)
         setError(null)
-        
-        const state = location.state as LocationState
-        
+
         if (state?.csvData && state?.columnMapping) {
+          if (isImportProcessing) {
+            console.log('⏭️  Import already processing, skipping...')
+            return
+          }
+
+          console.log('🚀 Starting import process...')
+          isImportProcessing = true
+
           // New CSV import - add to existing leads
           const { csvData, columnMapping: mapping } = state
-          
+
+          // First, create an import record
+          const importRecord = await window.api.imports.create({
+            filename: state.filename || 'manual_import.csv',
+            status: 'processing',
+            lead_count: csvData.data.length
+          })
+
+          console.log('Import record response:', importRecord)
+
+          if (!importRecord || !importRecord.id) {
+            console.error('Import creation failed:', importRecord)
+            throw new Error(`Failed to create import record: ${typeof importRecord === 'object' && importRecord?.error?.message || 'Unknown error'}`)
+          }
+
           // Transform CSV data to LeadData format
           const transformedLeads: LeadData[] = csvData.data.map((row, index) => ({
             ...row,
@@ -50,11 +83,16 @@ export function Leads() {
             status: 'imported' as const,
             selected: false,
           }))
-          
-          // Add to storage and update state
-          const storage = await leadsStorage.addLeads(transformedLeads, mapping)
+
+          // Add to storage with the import ID
+          const storage = await leadsStorage.addLeads(transformedLeads, mapping, importRecord.id)
           setLeads(storage.leads)
           setColumnMapping(storage.columnMapping)
+
+          // Update the import status to completed
+          await window.api.imports.update(importRecord.id, {
+            status: 'completed'
+          })
           
           // Show message if duplicates were skipped
           if (storage.skippedDuplicates && storage.skippedDuplicates > 0) {
@@ -63,6 +101,10 @@ export function Leads() {
           
           // Clear the navigation state to prevent re-processing on refresh
           window.history.replaceState({}, document.title)
+
+          // Reset the processing flag
+          isImportProcessing = false
+          console.log('✅ Import process completed successfully')
         } else {
           // Load existing leads from storage
           const storage = await leadsStorage.getLeads()
@@ -76,6 +118,8 @@ export function Leads() {
         console.error('Error initializing leads:', err)
         setError('Failed to load leads. Please try again.')
         toast.error('Failed to load leads')
+        // Reset flag on error too
+        isImportProcessing = false
       } finally {
         setLoading(false)
       }
@@ -122,7 +166,7 @@ export function Leads() {
   const handleDeleteLeads = async (leadIds: string[]) => {
     if (confirm(`Are you sure you want to delete ${leadIds.length} lead(s)?`)) {
       const success = await executeApiOperation(
-        () => leadsStorage.deleteLeads(leadIds),
+        () => leadsStorage.updateMultipleLeadsStatus(leadIds, 'deleted'),
         {
           showToast: false, // We'll handle success toast manually
           retryConfig: { maxAttempts: 2 }
@@ -130,8 +174,12 @@ export function Leads() {
       )
 
       if (success) {
-        // Update local state
-        setLeads(prev => prev.filter(lead => !leadIds.includes(lead.id)))
+        // Update local state - change status to 'deleted' instead of removing
+        setLeads(prev => prev.map(lead =>
+          leadIds.includes(lead.id)
+            ? { ...lead, status: 'deleted' as const }
+            : lead
+        ))
 
         // Clear selection
         setSelectedLeads([])
@@ -149,7 +197,7 @@ export function Leads() {
   const handleDeleteLead = async (leadId: string) => {
     if (confirm('Are you sure you want to remove this lead from the list?')) {
       const success = await executeApiOperation(
-        () => leadsStorage.deleteLeads([leadId]),
+        () => leadsStorage.updateLeadStatus(leadId, 'deleted'),
         {
           showToast: false, // We'll handle success toast manually
           retryConfig: { maxAttempts: 2 }
@@ -157,8 +205,12 @@ export function Leads() {
       )
 
       if (success) {
-        // Update local state
-        setLeads(prev => prev.filter(lead => lead.id !== leadId))
+        // Update local state - change status to 'deleted'
+        setLeads(prev => prev.map(lead =>
+          lead.id === leadId
+            ? { ...lead, status: 'deleted' as const }
+            : lead
+        ))
 
         // Clear selection if deleted lead was selected
         setSelectedLeads(prev => prev.filter(id => id !== leadId))
@@ -173,26 +225,6 @@ export function Leads() {
     }
   }
 
-  const handleClearAllLeads = async () => {
-    if (confirm('Are you sure you want to delete ALL leads? This cannot be undone.')) {
-      const success = await executeApiOperation(
-        () => leadsStorage.clearAllLeads(),
-        {
-          showToast: false, // We'll handle success toast manually
-          retryConfig: { maxAttempts: 2 }
-        }
-      )
-
-      if (success) {
-        setLeads([])
-        setColumnMapping({})
-        setSelectedLeads([])
-        setDetailLead(null)
-
-        toast.success('All leads cleared')
-      }
-    }
-  }
 
   if (loading) {
     return (
@@ -270,17 +302,6 @@ export function Leads() {
               {isOperationLoading ? 'Deleting...' : `Delete Selected (${selectedLeads.length})`}
             </Button>
           )}
-          <Button
-            variant="outline"
-            onClick={handleClearAllLeads}
-            disabled={isOperationLoading}
-            className="text-destructive hover:text-destructive"
-          >
-            {isOperationLoading ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : null}
-            {isOperationLoading ? 'Clearing...' : 'Clear All Leads'}
-          </Button>
         </div>
       </div>
 

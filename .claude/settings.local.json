@@ -1,4 +1,40 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(npm rebuild:*)",
+      "Bash(cat:*)",
+      "WebSearch",
+      "mcp__playwright__browser_take_screenshot",
+      "mcp__playwright__browser_navigate",
+      "Bash(npm run dev:electron:*)",
+      "mcp__playwright__browser_close",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_tabs",
+      "Bash(curl:*)",
+      "Read(//Users/codyiddings/Library/Application Support/Claude/**)",
+      "Bash(npx:*)",
+      "Bash(node:*)",
+      "Bash(npm:*)",
+      "mcp__circuit-electron__app_launch",
+      "mcp__circuit-electron__screenshot",
+      "mcp__circuit-electron__click_by_text",
+      "mcp__circuit-electron__snapshot",
+      "mcp__circuit-electron__wait_for_load_state",
+      "mcp__circuit-electron__get_windows",
+      "mcp__circuit-electron__evaluate",
+      "mcp__circuit-electron__browser_console_messages",
+      "mcp__circuit-electron__close",
+      "mcp__playwright__browser_click",
+      "Bash(lsof:*)",
+      "Bash(pkill:*)",
+      "Bash(xargs kill:*)",
+      "Read(//Users/codyiddings/Library/**)",
+      "mcp__circuit-electron__click",
+      "mcp__circuit-electron__keyboard_press"
+    ]
+  },
   "hooks": {
     "Stop": [
       {

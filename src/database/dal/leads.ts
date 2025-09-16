@@ -9,7 +9,7 @@ export interface LeadRecord {
   email?: string;
   title?: string;
   additional_fields?: string; // JSON string
-  status?: 'pending' | 'processed' | 'exported' | 'failed';
+  status?: 'imported' | 'generating' | 'drafted' | 'approved' | 'exported' | 'failed' | 'deleted';
   woodpecker_campaign_id?: string;
   export_date?: string;
   created_at?: string;
@@ -63,36 +63,59 @@ export class LeadsDAL {
     });
   }
 
-  static bulkCreate(bulkData: BulkLeadData): LeadRecord[] {
+  static bulkCreate(bulkData: BulkLeadData): { created: LeadRecord[], skipped: number } {
     return withTransaction(db => {
       const stmt = db.prepare(`
         INSERT INTO leads (
-          import_id, company, contact_name, email, title, 
+          import_id, company, contact_name, email, title,
           additional_fields, status, woodpecker_campaign_id, export_date
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
-      
-      const results: LeadRecord[] = [];
-      
+
+      const duplicateCheckStmt = db.prepare(`
+        SELECT COUNT(*) as count FROM leads WHERE email = ? AND email IS NOT NULL
+      `);
+
+      const created: LeadRecord[] = [];
+      let skipped = 0;
+
       for (const lead of bulkData.leads) {
-        const result = stmt.run(
-          bulkData.import_id,
-          lead.company || null,
-          lead.contact_name || null,
-          lead.email || null,
-          lead.title || null,
-          lead.additional_fields || null,
-          lead.status || 'pending',
-          lead.woodpecker_campaign_id || null,
-          lead.export_date || null
-        );
-        
-        const created = this.getById(result.lastInsertRowid as number);
-        if (created) results.push(created);
+        // Skip if email already exists (duplicate detection)
+        if (lead.email) {
+          const existing = duplicateCheckStmt.get(lead.email) as { count: number };
+          if (existing.count > 0) {
+            skipped++;
+            continue;
+          }
+        }
+
+        try {
+          const result = stmt.run(
+            bulkData.import_id,
+            lead.company || null,
+            lead.contact_name || null,
+            lead.email || null,
+            lead.title || null,
+            lead.additional_fields || null,
+            lead.status || 'pending',
+            lead.woodpecker_campaign_id || null,
+            lead.export_date || null
+          );
+
+          const newLead = this.getById(result.lastInsertRowid as number);
+          if (newLead) created.push(newLead);
+        } catch (error: any) {
+          // Handle unique constraint errors as duplicates
+          if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+            skipped++;
+          } else {
+            throw error;
+          }
+        }
       }
-      
-      return results;
+
+      return { created, skipped };
     });
   }
 

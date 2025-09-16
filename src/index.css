@@ -287,4 +287,29 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Electron window drag support */
+  .window-drag {
+    -webkit-app-region: drag;
+  }
+
+  .no-drag {
+    -webkit-app-region: no-drag;
+  }
+
+  /* Make the header draggable */
+  header {
+    -webkit-app-region: drag;
+  }
+
+  /* Ensure content can scroll normally and doesn't overlap fixed header */
+  body {
+    -webkit-app-region: no-drag;
+    padding-top: 80px; /* Approximate header height */
+  }
+
+  /* Make interactive elements non-draggable */
+  button, input, select, textarea, a, [role="button"], [tabindex] {
+    -webkit-app-region: no-drag;
+  }
 }

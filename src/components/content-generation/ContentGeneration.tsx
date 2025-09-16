@@ -262,23 +262,32 @@ export function ContentGeneration({
 
   // Load existing content when lead changes
   useEffect(() => {
-    console.log(
-      '🔄 [ContentGeneration] Lead changed, loading content for:',
-      lead.email || lead.id
-    )
-    const leadId = btoa(String(lead.email || lead.id)).replace(/[/+=]/g, '')
-    const existingContent = contentGenerationService.getLeadContent(leadId)
+    const loadExistingContent = async () => {
+      console.log(
+        '🔄 [ContentGeneration] Lead changed, loading content for:',
+        lead.email || lead.id
+      )
+      const leadId = btoa(String(lead.email || lead.id)).replace(/[/+=]/g, '')
+      const existingContent = await contentGenerationService.getLeadContent(leadId)
 
-    console.log(
-      '🔄 [ContentGeneration] Found existing content:',
-      !!existingContent
-    )
+      console.log(
+        '🔄 [ContentGeneration] Found existing content:',
+        !!existingContent
+      )
 
-    if (existingContent) {
-      setContent(existingContent)
-      onContentUpdate?.(existingContent)
+      if (existingContent) {
+        setContent(existingContent)
+        onContentUpdate?.(existingContent)
+        // Update status to 'drafted' if content exists but lead status is still 'imported'
+        if (lead.status === 'imported') {
+          console.log('🔄 [ContentGeneration] Updating status from imported to drafted for lead with existing content:', lead.id)
+          onStatusUpdate?.(lead.id, 'drafted')
+        }
+      }
     }
-  }, [lead.email, lead.id, onContentUpdate])
+
+    loadExistingContent()
+  }, [lead.email, lead.id, lead.status, onContentUpdate, onStatusUpdate])
 
   // Convert HTML to plain text when enhanced editing is enabled and we have content but no plain text
   useEffect(() => {

@@ -18,14 +18,29 @@ export function setupLeadsHandlers(): void {
   });
 
   // Bulk create leads
-  ipcMain.handle('ipc:leads:bulkCreate', async (_, leads: BulkLeadData[]) => {
+  ipcMain.handle('ipc:leads:bulkCreate', async (_, bulkData: BulkLeadData) => {
     try {
-      validateInput({ leads }, ['leads']);
-      if (!Array.isArray(leads) || leads.length === 0) {
-        throw new Error('Leads array is required and must not be empty');
+      console.log('IPC bulkCreate received:', JSON.stringify(bulkData, null, 2));
+      console.log('bulkData type:', typeof bulkData);
+      console.log('bulkData.leads type:', typeof bulkData?.leads);
+      console.log('bulkData.leads isArray:', Array.isArray(bulkData?.leads));
+
+      validateInput(bulkData, ['import_id']);
+      if (!Array.isArray(bulkData.leads)) {
+        console.log('ERROR: Leads property is not an array');
+        throw new Error('Leads property must be an array');
       }
-      return LeadsDAL.bulkCreate(leads);
+      if (bulkData.leads.length === 0) {
+        console.log('Empty leads array, returning empty result');
+        // Return empty result for empty array instead of throwing error
+        return { success: true, data: { created: [], skipped: 0 } };
+      }
+      console.log('Calling LeadsDAL.bulkCreate with', bulkData.leads.length, 'leads');
+      const result = LeadsDAL.bulkCreate(bulkData);
+      console.log('LeadsDAL.bulkCreate result:', result);
+      return { success: true, data: result };
     } catch (error) {
+      console.log('IPC bulkCreate error:', error);
       return handleIpcError(error, 'leads:bulkCreate');
     }
   });
@@ -33,7 +48,8 @@ export function setupLeadsHandlers(): void {
   // Get all leads
   ipcMain.handle('ipc:leads:getAll', async (_, options?: LeadFilters) => {
     try {
-      return LeadsDAL.getAll(options);
+      const result = LeadsDAL.getAll(options);
+      return { success: true, data: result };
     } catch (error) {
       return handleIpcError(error, 'leads:getAll');
     }
@@ -63,7 +79,8 @@ export function setupLeadsHandlers(): void {
   ipcMain.handle('ipc:leads:update', async (_, id: number, data: Partial<LeadRecord>) => {
     try {
       validateInput({ id }, ['id']);
-      return LeadsDAL.update(id, data);
+      const result = LeadsDAL.update(id, data);
+      return { success: true, data: result };
     } catch (error) {
       return handleIpcError(error, 'leads:update');
     }
@@ -73,7 +90,8 @@ export function setupLeadsHandlers(): void {
   ipcMain.handle('ipc:leads:delete', async (_, id: number) => {
     try {
       validateInput({ id }, ['id']);
-      return LeadsDAL.delete(id);
+      const result = LeadsDAL.delete(id);
+      return { success: true, data: result };
     } catch (error) {
       return handleIpcError(error, 'leads:delete');
     }

@@ -19,6 +19,13 @@ export const metadataStorage = {
   // Get a metadata value by key
   async get(key: MetadataKey): Promise<MetadataValue | null> {
     try {
+      // Check if we're in Electron environment
+      if (!window.api) {
+        // Fallback to localStorage
+        const stored = localStorage.getItem(`metadata_${key}`)
+        return stored ? JSON.parse(stored) : null
+      }
+
       const response = await window.api.metadata.get(key)
       
       if (isApiError(response)) {
@@ -36,6 +43,13 @@ export const metadataStorage = {
   // Set a metadata value
   async set(key: MetadataKey, value: MetadataValue): Promise<boolean> {
     try {
+      // Check if we're in Electron environment
+      if (!window.api) {
+        // Fallback to localStorage
+        localStorage.setItem(`metadata_${key}`, JSON.stringify(value))
+        return true
+      }
+
       const response = await window.api.metadata.set(key, value)
       
       if (isApiError(response)) {
@@ -53,6 +67,13 @@ export const metadataStorage = {
   // Delete a metadata entry
   async delete(key: MetadataKey): Promise<boolean> {
     try {
+      // Check if we're in Electron environment
+      if (!window.api) {
+        // Fallback to localStorage
+        localStorage.removeItem(`metadata_${key}`)
+        return true
+      }
+
       const response = await window.api.metadata.delete(key)
       
       if (isApiError(response)) {
@@ -70,6 +91,21 @@ export const metadataStorage = {
   // Get all metadata entries
   async getAll(): Promise<Record<string, MetadataValue>> {
     try {
+      // Check if we're in Electron environment
+      if (!window.api) {
+        // Fallback to localStorage
+        const metadata: Record<string, MetadataValue> = {}
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i)
+          if (key?.startsWith('metadata_')) {
+            const metaKey = key.substring('metadata_'.length)
+            const value = localStorage.getItem(key)
+            metadata[metaKey] = value ? JSON.parse(value) : null
+          }
+        }
+        return metadata
+      }
+
       const response = await window.api.metadata.getAll()
       
       if (isApiError(response)) {

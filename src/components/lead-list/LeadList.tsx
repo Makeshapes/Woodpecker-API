@@ -136,21 +136,24 @@ export function LeadList({
 
   // Get key columns to display
   const displayColumns = useMemo(() => {
-    const standardFields = ['company', 'contact', 'title']
-    const columns: { key: string; label: string }[] = []
+    // Use the actual field names that exist in the lead data
+    const standardFields = [
+      { key: 'company', label: 'Company' },
+      { key: 'Full Name', label: 'Contact' }, // Check additional fields first
+      { key: 'title', label: 'Title' },
+    ]
 
-    // Add standard mapped fields
-    standardFields.forEach((field) => {
-      const originalHeader = Object.keys(columnMapping).find(
-        (key) => columnMapping[key] === field
+    // Filter to only show columns that actually have data
+    return standardFields.filter((field) => {
+      return leads.some(
+        (lead) =>
+          lead[field.key] ||
+          (field.key === 'Full Name' && lead['Full Name']) ||
+          (field.key === 'company' && lead.company) ||
+          (field.key === 'title' && lead.title)
       )
-      if (originalHeader) {
-        columns.push({ key: originalHeader, label: field })
-      }
     })
-
-    return columns
-  }, [columnMapping])
+  }, [leads])
 
   const statusCounts = useMemo(() => {
     return leads.reduce(
@@ -213,6 +216,8 @@ export function LeadList({
             <option value="imported">Imported</option>
             <option value="drafted">Drafted</option>
             <option value="exported">Exported</option>
+            <option value="approved">Approved</option>
+            <option value="deleted">Deleted</option>
           </select>
         </div>
 

@@ -22,7 +22,7 @@ interface ColumnMapping {
 }
 
 interface CsvUploadProps {
-  onDataLoaded?: (data: CsvData, mapping: ColumnMapping) => void
+  onDataLoaded?: (data: CsvData, mapping: ColumnMapping, filename: string) => void
   maxRows?: number
 }
 
@@ -290,7 +290,7 @@ export function CsvUpload({ onDataLoaded, maxRows = 1000 }: CsvUploadProps) {
       setUploadProgress(100)
 
       if (onDataLoaded) {
-        onDataLoaded(csvData, mapping)
+        onDataLoaded(csvData, mapping, fileName)
       }
 
       setTimeout(() => setIsUploading(false), 300) // Small delay to show 100%

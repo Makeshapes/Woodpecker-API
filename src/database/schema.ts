@@ -24,7 +24,7 @@ export const CREATE_TABLES_SQL = {
       email TEXT,
       title TEXT,
       additional_fields TEXT, -- JSON string
-      status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'processed', 'exported', 'failed')),
+      status TEXT DEFAULT 'imported' CHECK (status IN ('imported', 'generating', 'drafted', 'approved', 'exported', 'failed', 'deleted')),
       woodpecker_campaign_id TEXT,
       export_date DATETIME,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
