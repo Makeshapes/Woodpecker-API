@@ -1,6 +1,33 @@
-# React + TypeScript + Vite
+# Woodpecker API Integration Tool
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A React + TypeScript + Vite application for managing lead imports and integrating with the Woodpecker API. This application uses SQLite for local data persistence and provides functionality for CSV import, lead management, and campaign integration.
+
+## Database Setup
+
+The application uses SQLite for local data storage. The database will be automatically initialized on first run, but you can also manually initialize it:
+
+### Automatic Initialization
+The database (`leads.db`) will be created automatically in your user data directory when you first run the application.
+
+### Manual Database Generation
+To manually generate the database files for development or testing:
+
+```bash
+# Install dependencies first
+npm install
+
+# Run the application - database will be created on first launch
+npm run dev
+```
+
+The database includes the following tables:
+- `imports` - Tracks CSV import sessions
+- `leads` - Stores individual lead data from imports
+- `generated_content` - Stores AI-generated email sequences
+- `mappings` - Stores field mappings between CSV columns and Woodpecker fields
+- `app_metadata` - Application configuration and state
+
+## Development Setup
 
 Currently, two official plugins are available:
 
