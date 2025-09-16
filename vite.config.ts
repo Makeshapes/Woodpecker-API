@@ -26,5 +26,8 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/setupTests.ts'],
+    alias: {
+      'electron': 'electron/main',
+    },
   },
 })
