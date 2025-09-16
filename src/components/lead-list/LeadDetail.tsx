@@ -18,13 +18,24 @@ import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { ContentGeneration } from '@/components/content-generation/ContentGeneration'
 import CampaignSelector from '@/components/export/CampaignSelector'
-import WoodpeckerService from '@/services/woodpeckerService'
-import { formatMultipleProspects, validateWoodpeckerProspect } from '@/utils/woodpeckerFormatter'
+import WoodpeckerService, {
+  type WoodpeckerCampaign,
+} from '@/services/woodpeckerService'
+import {
+  formatMultipleProspects,
+  validateWoodpeckerProspect,
+} from '@/utils/woodpeckerFormatter'
 import type { LeadData, ColumnMapping, LeadStatus } from '@/types/lead'
 import { Trash2, Copy, Download } from 'lucide-react'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import type { ClaudeResponse } from '@/services/claudeService'
-import { contentStorage } from '@/utils/contentStorage'
+import ConversionButton from '@/components/content-generation/ConversionButton'
+import {
+  type PlainTextContent,
+  convertFromHtmlContent,
+} from '@/utils/contentConverter'
+import type { GeneratedContent } from '@/utils/woodpeckerFormatter'
+import { Link } from 'react-router-dom'
 
 interface LeadDetailProps {
   lead: LeadData
@@ -46,12 +57,22 @@ export function LeadDetail({
   const [generatedContent, setGeneratedContent] =
     useState<ClaudeResponse | null>(null)
   const [copySuccess, setCopySuccess] = useState(false)
-  const [selectedCampaignId, setSelectedCampaignId] = useState<string>('2356837')
+  const [selectedCampaignId, setSelectedCampaignId] =
+    useState<string>('2356837')
   const [selectedCampaignName, setSelectedCampaignName] = useState<string>('')
   const [isExporting, setIsExporting] = useState(false)
-  const [isLoadingContent, setIsLoadingContent] = useState(false)
-  const [contentError, setContentError] = useState<string | null>(null)
   const [woodpeckerService] = useState(() => new WoodpeckerService())
+
+  // ConversionButton state
+  const [plainTextContent, setPlainTextContent] = useState<PlainTextContent>({
+    snippet1: '',
+    snippet2: '',
+    snippet3: '',
+    snippet4: '',
+    snippet5: '',
+    snippet6: '',
+    snippet7: '',
+  })
 
   // Group fields by type using useMemo to prevent infinite re-renders
   const { standardData, customData } = useMemo(() => {
@@ -88,51 +109,82 @@ export function LeadDetail({
   // Load generated content when modal opens
   useEffect(() => {
     if (open && (lead.status === 'drafted' || lead.status === 'exported')) {
-      const loadContent = async () => {
-        try {
-          setIsLoadingContent(true)
-          setContentError(null)
-
-          const leadId = lead.id
-          const content = await contentStorage.getLeadContent(leadId)
-
-          if (content) {
-            setGeneratedContent(content)
-          } else {
-            setGeneratedContent(null)
+      const loadContent = () => {
+        const leadId = btoa(String(standardData.email || lead.id)).replace(
+          /[/+=]/g,
+          ''
+        )
+        const storedContent = localStorage.getItem(`lead_content_${leadId}`)
+        if (storedContent) {
+          try {
+            const parsed = JSON.parse(storedContent)
+            setGeneratedContent(parsed)
+          } catch (error) {
+            console.error('Failed to parse stored content:', error)
           }
-        } catch (error) {
-          console.error('Failed to load content from database:', error)
-          setContentError('Failed to load content from database')
-          toast.error('Failed to load content')
-        } finally {
-          setIsLoadingContent(false)
         }
       }
 
       loadContent()
 
-      // Set up interval to refresh content every 5 seconds to catch edits
-      // Increased interval to reduce database load
-      const interval = setInterval(loadContent, 5000)
+      // Set up interval to refresh content every 2 seconds to catch edits
+      const interval = setInterval(loadContent, 2000)
       return () => clearInterval(interval)
-    } else {
-      // Clear content when modal closes or lead status changes
-      setGeneratedContent(null)
-      setContentError(null)
     }
-  }, [open, lead.status, lead.id])
+  }, [open, lead.status, lead.id, standardData.email])
+
+  // Convert generated content to plain text when available
+  useEffect(() => {
+    if (generatedContent && !plainTextContent.snippet1) {
+      const plainText = convertFromHtmlContent(generatedContent)
+      setPlainTextContent(plainText)
+    }
+  }, [generatedContent, plainTextContent.snippet1])
+
+  // ConversionButton handlers
+  const handleConversionComplete = useCallback(
+    (htmlContent: ClaudeResponse) => {
+      console.log('✅ [LeadDetail] Conversion to HTML completed')
+      setGeneratedContent(htmlContent)
+
+      // Store the updated content
+      const leadId = btoa(String(standardData.email || lead.id)).replace(
+        /[/+=]/g,
+        ''
+      )
+      localStorage.setItem(
+        `lead_content_${leadId}`,
+        JSON.stringify(htmlContent)
+      )
+
+      // Update lead status if callback provided
+      onStatusUpdate?.(lead.id, 'approved')
+      toast.success('Content approved and converted to HTML format')
+    },
+    [lead.id, standardData.email, onStatusUpdate]
+  )
+
+  const handleApprovalStatusChange = useCallback(() => {
+    console.log('✅ Updating lead status to "approved" for lead ID:', lead.id)
+    onStatusUpdate?.(lead.id, 'approved')
+    toast.success('Content approved')
+  }, [lead.id, onStatusUpdate])
 
   // Create the complete JSON object
   const createCompleteJson = () => {
+    const resolvedTitle =
+      standardData.title && standardData.title !== (customData.Title || '')
+        ? standardData.title
+        : ''
+
     const baseData = {
       email: standardData.email || '',
       first_name: standardData.contact?.split(' ')[0] || '',
       last_name: standardData.contact?.split(' ').slice(1).join(' ') || '',
       company: standardData.company || '',
-      title: standardData.title || '',
+      title: resolvedTitle,
       linkedin_url: standardData.linkedin || '',
-      tags: `#${standardData.department || 'Business'} #${standardData.company?.replace(/\s+/g, '')} #${standardData.title?.replace(/\s+/g, '')}`,
+      tags: `#${standardData.department || 'Business'} #${standardData.company?.replace(/\s+/g, '')} #${(customData.Title || standardData.title || '').replace(/\s+/g, '')}`,
       industry: customData.Industry || standardData.department || 'Technology',
     }
 
@@ -165,42 +217,48 @@ export function LeadDetail({
     }
   }
 
-  const handleCampaignChange = (campaignId: string, campaign: any) => {
-    setSelectedCampaignId(campaignId);
-    setSelectedCampaignName(campaign?.name || '');
-  };
+  const handleCampaignChange = (
+    campaignId: string,
+    campaign: WoodpeckerCampaign | null
+  ) => {
+    setSelectedCampaignId(campaignId)
+    setSelectedCampaignName(campaign?.name || '')
+  }
 
   const handleExportToCampaign = async () => {
     console.log('🚀 LeadDetail: Export to Campaign clicked', {
       selectedCampaignId,
       hasGeneratedContent: !!generatedContent,
-      leadId: lead.id
-    });
+      leadId: lead.id,
+    })
 
     if (!selectedCampaignId || !generatedContent) {
       console.error('❌ LeadDetail: Missing requirements for export', {
         selectedCampaignId,
-        hasGeneratedContent: !!generatedContent
-      });
-      toast.error('Please select a campaign and ensure content is generated');
-      return;
+        hasGeneratedContent: !!generatedContent,
+      })
+      toast.error('Please select a campaign and ensure content is generated')
+      return
     }
 
-    setIsExporting(true);
+    setIsExporting(true)
 
     try {
-      console.log('📋 LeadDetail: Formatting prospects for export...');
+      console.log('📋 LeadDetail: Formatting prospects for export...')
       console.log('📊 LeadDetail: Input data:', {
         lead: lead,
-        generatedContent: generatedContent
-      });
+        generatedContent: generatedContent,
+      })
 
       // Format the prospect with generated content
       const prospects = formatMultipleProspects(
         [lead],
-        (leadId) => leadId === lead.id && generatedContent ? generatedContent as any : undefined
-      );
-      console.log('✅ LeadDetail: Formatted prospects:', prospects);
+        (leadId): GeneratedContent | undefined =>
+          leadId === lead.id && generatedContent
+            ? (generatedContent as unknown as GeneratedContent)
+            : undefined
+      )
+      console.log('✅ LeadDetail: Formatted prospects:', prospects)
       console.log('🔍 LeadDetail: First prospect details:', {
         email: prospects[0]?.email,
         first_name: prospects[0]?.first_name,
@@ -211,52 +269,53 @@ export function LeadDetail({
         hasSnippet1: !!prospects[0]?.snippet1,
         hasSnippet2: !!prospects[0]?.snippet2,
         snippet1Preview: prospects[0]?.snippet1?.substring(0, 50),
-        allKeys: Object.keys(prospects[0] || {})
-      });
+        allKeys: Object.keys(prospects[0] || {}),
+      })
 
-      console.log('🔍 LeadDetail: Validating prospect data...');
+      console.log('🔍 LeadDetail: Validating prospect data...')
       // Validate the prospect
-      const validation = validateWoodpeckerProspect(prospects[0]);
-      console.log('📊 LeadDetail: Validation results:', validation);
+      const validation = validateWoodpeckerProspect(prospects[0])
+      console.log('📊 LeadDetail: Validation results:', validation)
 
       if (!validation.isValid) {
-        console.error('❌ LeadDetail: Validation failed:', validation.errors);
-        toast.error(`Validation failed: ${validation.errors.join(', ')}`);
-        return;
+        console.error('❌ LeadDetail: Validation failed:', validation.errors)
+        toast.error(`Validation failed: ${validation.errors.join(', ')}`)
+        return
       }
 
-      console.log('📡 LeadDetail: Calling Woodpecker API to export prospect...');
+      console.log('📡 LeadDetail: Calling Woodpecker API to export prospect...')
       // Export to Woodpecker
       const result = await woodpeckerService.addProspectsToCampaign(
         prospects,
         parseInt(selectedCampaignId)
-      );
-      console.log('📈 LeadDetail: Export result:', result);
+      )
+      console.log('📈 LeadDetail: Export result:', result)
 
       if (result.succeeded > 0) {
-        console.log('✅ LeadDetail: Export successful!');
-        onStatusUpdate?.(lead.id, 'exported');
+        console.log('✅ LeadDetail: Export successful!')
+        onStatusUpdate?.(lead.id, 'exported')
         toast.success(
           `Successfully exported to ${selectedCampaignName || 'campaign'}!`,
           {
             description: `Lead added to campaign ${selectedCampaignId}`,
           }
-        );
+        )
       } else {
-        console.error('❌ LeadDetail: Export failed with no successes:', result);
+        console.error('❌ LeadDetail: Export failed with no successes:', result)
         toast.error('Export failed', {
           description: result.errors[0]?.error || 'Unknown error occurred',
-        });
+        })
       }
     } catch (error) {
-      console.error('Export error:', error);
+      console.error('Export error:', error)
       toast.error('Export failed', {
-        description: error instanceof Error ? error.message : 'Unknown error occurred',
-      });
+        description:
+          error instanceof Error ? error.message : 'Unknown error occurred',
+      })
     } finally {
-      setIsExporting(false);
+      setIsExporting(false)
     }
-  };
+  }
 
   const getStatusColor = (status: string): string => {
     switch (status) {
@@ -264,6 +323,8 @@ export function LeadDetail({
         return 'bg-blue-100 text-blue-800'
       case 'drafted':
         return 'bg-yellow-100 text-yellow-800'
+      case 'approved':
+        return 'bg-green-100 text-green-800'
       case 'exported':
         return 'bg-gray-100 text-gray-800'
       default:
@@ -274,14 +335,25 @@ export function LeadDetail({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="min-w-6xl overflow-y-auto">
-        <SheetHeader>
+        <SheetHeader className="fixed bg-background w-full z-10 border-b">
           <div className="flex items-center justify-between">
             <div>
-              <SheetTitle className="text-xl">
-                {standardData.contact || standardData.company || 'Lead Details'}
-              </SheetTitle>
+              <div className="flex items-center gap-2 justify-between">
+                <SheetTitle className="text-xl">
+                  {standardData.contact ||
+                    standardData.company ||
+                    'Lead Details'}
+                </SheetTitle>
+              </div>
               <SheetDescription>
-                Complete information for this lead
+                {standardData.title || ''} - {standardData.company} -{' '}
+                <Link
+                  className="size-4 text-blue-600 hover:text-blue-800"
+                  to={standardData.linkedin || ''}
+                  target="_blank"
+                >
+                  Linkedin
+                </Link>
               </SheetDescription>
               <div className="flex items-center gap-2 mt-2">
                 <Badge className={getStatusColor(lead.status)}>
@@ -292,14 +364,10 @@ export function LeadDetail({
           </div>
         </SheetHeader>
 
-        <div className="space-y-6 px-8">
+        <div className="space-y-6 px-8 pt-32">
           <ContentGeneration
             lead={{ ...lead, ...standardData }}
             onStatusUpdate={onStatusUpdate}
-            onContentUpdate={(content) => {
-              setGeneratedContent(content)
-              setContentError(null)
-            }}
           />
 
           {/* Standard Fields */}
@@ -370,74 +438,94 @@ export function LeadDetail({
         </div>
 
         <SheetFooter className="border-t pt-4">
-          {(lead.status === 'drafted' || lead.status === 'exported') && (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-lg">
-                      Generated Content JSON
-                    </CardTitle>
-                    <CardDescription>
-                      Complete lead data with generated email sequence - updates
-                      live as you edit
-                    </CardDescription>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleCopyJson}
-                      className="gap-2"
-                    >
-                      <Copy className="h-4 w-4" />
-                      {copySuccess ? 'Copied!' : 'Copy JSON'}
-                    </Button>
-                    {lead.status !== 'exported' ? (
-                      <div className="flex items-center gap-2">
-                        <CampaignSelector
-                          value={selectedCampaignId}
-                          onValueChange={handleCampaignChange}
-                          className="w-64"
-                          placeholder="Select campaign..."
-                        />
+          {(lead.status === 'drafted' ||
+            lead.status === 'approved' ||
+            lead.status === 'exported') && (
+            <>
+              {plainTextContent.snippet1 && (
+                <ConversionButton
+                  plainTextContent={plainTextContent}
+                  leadData={{
+                    first_name: standardData.contact?.split(' ')[0] || 'There',
+                    last_name:
+                      standardData.contact?.split(' ').slice(1).join(' ') || '',
+                    company: standardData.company || '',
+                    title: standardData.title || '',
+                    email: standardData.email || '',
+                    industry:
+                      customData.Industry ||
+                      standardData.department ||
+                      'Technology',
+                    linkedin_url: standardData.linkedin || '',
+                    tags: `#${standardData.department || 'Business'} #${standardData.company?.replace(/\s+/g, '')} #${(customData.Title || standardData.title || '').replace(/\s+/g, '')}`,
+                  }}
+                  onConversionComplete={handleConversionComplete}
+                  onShowJson={() => {}}
+                  onStatusChange={handleApprovalStatusChange}
+                />
+              )}
+              {lead.status === 'approved' ? (
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="text-lg">
+                          Generated Content JSON
+                        </CardTitle>
+                        <CardDescription>
+                          Complete lead data with generated email sequence -
+                          updates live as you edit
+                        </CardDescription>
+                      </div>
+                      <div className="flex gap-2">
                         <Button
+                          variant="outline"
                           size="sm"
-                          onClick={handleExportToCampaign}
-                          disabled={isExporting || !selectedCampaignId || !generatedContent || isLoadingContent}
+                          onClick={handleCopyJson}
                           className="gap-2"
                         >
-                          <Download className="h-4 w-4" />
-                          {isExporting ? 'Exporting...' : 'Export to Campaign'}
+                          <Copy className="h-4 w-4" />
+                          {copySuccess ? 'Copied!' : 'Copy JSON'}
                         </Button>
+                        <div className="flex items-center gap-2">
+                          <CampaignSelector
+                            value={selectedCampaignId}
+                            onValueChange={handleCampaignChange}
+                            className="!w-32 overflow-hidden truncate"
+                            placeholder="Select campaign..."
+                          />
+                          <Button
+                            size="sm"
+                            onClick={handleExportToCampaign}
+                            disabled={
+                              isExporting ||
+                              !selectedCampaignId ||
+                              !generatedContent
+                            }
+                            className="gap-2"
+                          >
+                            <Download className="h-4 w-4" />
+                            {isExporting
+                              ? 'Exporting...'
+                              : 'Export to Campaign'}
+                          </Button>
+                        </div>
                       </div>
-                    ) : (
-                      <Button variant="outline" size="sm" disabled>
-                        Exported ✓
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="bg-muted/50 rounded-lg p-4 max-h-96 overflow-y-auto">
-                  {isLoadingContent ? (
-                    <div className="flex items-center justify-center py-8">
-                      <div className="text-sm text-muted-foreground">Loading content...</div>
                     </div>
-                  ) : contentError ? (
-                    <div className="flex items-center justify-center py-8">
-                      <div className="text-sm text-destructive">{contentError}</div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="bg-muted/50 rounded-lg p-4 max-h-96 overflow-y-auto">
+                      <pre className="text-xs font-mono whitespace-pre-wrap">
+                        {JSON.stringify(createCompleteJson(), null, 2)}
+                      </pre>
                     </div>
-                  ) : (
-                    <pre className="text-xs font-mono whitespace-pre-wrap">
-                      {JSON.stringify(createCompleteJson(), null, 2)}
-                    </pre>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}{' '}
+                  </CardContent>
+                </Card>
+              ) : (
+                <></>
+              )}
+            </>
+          )}
           <div className="flex gap-2 justify-end w-full">
             {lead.status === 'exported' && (
               <Button

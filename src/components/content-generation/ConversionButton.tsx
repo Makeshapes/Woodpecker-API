@@ -1,5 +1,5 @@
 /**
- * Conversion button component for "Prepare JSON" functionality
+ * Conversion button component for "Approve Content" functionality
  * Story 1.5: Enhanced Content Editing Workflow with Plain Text UI
  */
 
@@ -11,7 +11,7 @@ import { Loader2, FileCode, AlertCircle, CheckCircle } from 'lucide-react'
 import {
   type PlainTextContent,
   convertToHtmlContent,
-  validatePlainText
+  validatePlainText,
 } from '@/utils/contentConverter'
 import { TemplateService } from '@/services/templateService'
 import type { ClaudeResponse } from '@/services/claudeService'
@@ -21,6 +21,7 @@ interface ConversionButtonProps {
   leadData: any
   onConversionComplete: (htmlContent: ClaudeResponse) => void
   onShowJson: (show: boolean) => void
+  onStatusChange?: () => void
   disabled?: boolean
   className?: string
 }
@@ -37,22 +38,23 @@ export function ConversionButton({
   leadData,
   onConversionComplete,
   onShowJson,
+  onStatusChange,
   disabled = false,
-  className = ''
+  className = '',
 }: ConversionButtonProps) {
   const [state, setState] = useState<ConversionState>({
     isConverting: false,
     isConverted: false,
     conversionError: null,
-    htmlValidationErrors: []
+    htmlValidationErrors: [],
   })
 
   const handlePrepareJson = useCallback(async () => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
       isConverting: true,
       conversionError: null,
-      htmlValidationErrors: []
+      htmlValidationErrors: [],
     }))
 
     try {
@@ -61,12 +63,15 @@ export function ConversionButton({
       const plainTextValidation = validatePlainText(plainTextContent)
 
       if (!plainTextValidation.isValid) {
-        const errorMessages = plainTextValidation.errors.map(error => error.message)
-        setState(prev => ({
+        const errorMessages = plainTextValidation.errors.map(
+          (error) => error.message
+        )
+        setState((prev) => ({
           ...prev,
           isConverting: false,
-          conversionError: 'Please fix the content validation errors before converting to JSON.',
-          htmlValidationErrors: errorMessages
+          conversionError:
+            'Please fix the content validation errors before converting to JSON.',
+          htmlValidationErrors: errorMessages,
         }))
         return
       }
@@ -79,46 +84,51 @@ export function ConversionButton({
       // Step 3: Run full HTML validation using existing templateService logic
       console.log('🔍 [ConversionButton] Validating HTML content...')
       const templateService = new TemplateService()
-      const isHtmlValid = templateService.validateGeneratedContent(htmlContent, 'email-sequence')
+      const isHtmlValid = templateService.validateGeneratedContent(
+        htmlContent,
+        'email-sequence'
+      )
 
       if (!isHtmlValid) {
         console.error('❌ [ConversionButton] HTML validation failed')
-        setState(prev => ({
+        setState((prev) => ({
           ...prev,
           isConverting: false,
-          conversionError: 'Generated HTML content does not meet validation criteria. Please check your content format.',
+          conversionError:
+            'Generated HTML content does not meet validation criteria. Please check your content format.',
           htmlValidationErrors: [
             'HTML format validation failed',
             'Please ensure all required content is provided',
-            'Subject line must be 36-50 characters',
-            'LinkedIn message must be ≤300 characters',
-            'Email content must not be empty'
-          ]
+            'Subject line should be 36-50 characters (guideline)',
+            'LinkedIn message should be ≤300 characters (guideline)',
+            'Email content must not be empty',
+          ],
         }))
         return
       }
 
       // Step 4: Success - update states
       console.log('✅ [ConversionButton] HTML validation passed')
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         isConverting: false,
         isConverted: true,
         conversionError: null,
-        htmlValidationErrors: []
+        htmlValidationErrors: [],
       }))
 
       // Notify parent components
       onConversionComplete(htmlContent as ClaudeResponse)
       onShowJson(true)
-
+      onStatusChange?.()
     } catch (error) {
       console.error('❌ [ConversionButton] Conversion failed:', error)
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         isConverting: false,
-        conversionError: error instanceof Error ? error.message : 'Conversion failed',
-        htmlValidationErrors: ['Unexpected error during conversion']
+        conversionError:
+          error instanceof Error ? error.message : 'Conversion failed',
+        htmlValidationErrors: ['Unexpected error during conversion'],
       }))
     }
   }, [plainTextContent, leadData, onConversionComplete, onShowJson])
@@ -128,7 +138,7 @@ export function ConversionButton({
       isConverting: false,
       isConverted: false,
       conversionError: null,
-      htmlValidationErrors: []
+      htmlValidationErrors: [],
     })
     onShowJson(false)
   }, [onShowJson])
@@ -143,12 +153,12 @@ export function ConversionButton({
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg font-semibold flex items-center gap-2">
               <FileCode className="h-5 w-5" />
-              Export Content
+              Approve Content
             </CardTitle>
             {state.isConverted && (
               <Badge variant="secondary" className="text-green-600">
                 <CheckCircle className="h-3 w-3 mr-1" />
-                Ready for Export
+                Approved
               </Badge>
             )}
           </div>
@@ -157,9 +167,8 @@ export function ConversionButton({
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
               {state.isConverted
-                ? 'Your content has been successfully converted to HTML format and is ready for export.'
-                : 'Convert your plain text content to HTML format for export. This will validate all content and prepare the JSON output.'
-              }
+                ? 'Your content has been approved and converted to HTML format.'
+                : 'Approve and convert your plain text content to HTML format. This will validate all content and prepare the JSON output.'}
             </p>
 
             <div className="flex items-center gap-3">
@@ -167,9 +176,11 @@ export function ConversionButton({
                 onClick={state.isConverted ? handleReset : handlePrepareJson}
                 disabled={isDisabled}
                 size="lg"
-                variant={state.isConverted ? "outline" : "default"}
+                variant={state.isConverted ? 'outline' : 'default'}
               >
-                {state.isConverting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                {state.isConverting && (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                )}
                 {state.isConverted ? (
                   <>
                     <FileCode className="h-4 w-4 mr-2" />
@@ -178,14 +189,14 @@ export function ConversionButton({
                 ) : (
                   <>
                     <FileCode className="h-4 w-4 mr-2" />
-                    Prepare JSON
+                    Approve Content
                   </>
                 )}
               </Button>
 
               {state.isConverted && (
                 <Badge variant="outline" className="text-green-600">
-                  JSON Ready
+                  Content Approved
                 </Badge>
               )}
             </div>
@@ -213,7 +224,10 @@ export function ConversionButton({
                     </p>
                     <ul className="space-y-1">
                       {state.htmlValidationErrors.map((error, index) => (
-                        <li key={index} className="text-xs text-destructive flex items-center gap-1">
+                        <li
+                          key={index}
+                          className="text-xs text-destructive flex items-center gap-1"
+                        >
                           <div className="h-1 w-1 rounded-full bg-destructive flex-shrink-0 mt-1.5" />
                           {error}
                         </li>
@@ -238,7 +252,8 @@ export function ConversionButton({
                   Conversion Successful
                 </p>
                 <p className="text-xs text-green-700">
-                  Your content has been converted to HTML format and validated. The JSON output is now available below.
+                  Your content has been approved and converted to HTML format.
+                  The Generated Content JSON is now available below.
                 </p>
               </div>
             </div>

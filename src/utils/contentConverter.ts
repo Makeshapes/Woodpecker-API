@@ -3,7 +3,8 @@
  * Used in enhanced content editing workflow (Story 1.5)
  */
 
-import { detectTimezone } from './timezoneDetector';
+import { detectTimezone } from './timezoneDetector'
+import type { ClaudeResponse } from '@/services/claudeService'
 
 export interface PlainTextContent {
   snippet1: string // Subject line (plain text, no line breaks)
@@ -89,25 +90,25 @@ export function validatePlainText(
 ): LightValidationResult {
   const errors: LightValidationResult['errors'] = []
 
-  // Validate snippet1 (subject line): 36-50 characters
+  // Validate snippet1 (subject line): flexible guidelines
   if (!content.snippet1 || content.snippet1.trim() === '') {
     errors.push({
       field: 'snippet1',
       message: 'Subject line is required',
     })
-  } else if (content.snippet1.length < 36) {
+  } else if (content.snippet1.length < 10) {
     errors.push({
       field: 'snippet1',
-      message: 'Subject line must be at least 36 characters',
+      message: 'Subject line should be at least 10 characters (guideline)',
       currentLength: content.snippet1.length,
-      minLength: 36,
+      minLength: 10,
     })
-  } else if (content.snippet1.length > 50) {
+  } else if (content.snippet1.length > 100) {
     errors.push({
       field: 'snippet1',
-      message: 'Subject line must be no more than 50 characters',
+      message: 'Subject line should be no more than 100 characters (guideline)',
       currentLength: content.snippet1.length,
-      maxLength: 50,
+      maxLength: 100,
     })
   }
 
@@ -119,18 +120,19 @@ export function validatePlainText(
     })
   }
 
-  // Validate snippet3 (LinkedIn message): ≤300 characters
+  // Validate snippet3 (LinkedIn message): flexible guidelines
   if (!content.snippet3 || content.snippet3.trim() === '') {
     errors.push({
       field: 'snippet3',
       message: 'LinkedIn message is required',
     })
-  } else if (content.snippet3.length > 300) {
+  } else if (content.snippet3.length > 500) {
     errors.push({
       field: 'snippet3',
-      message: 'LinkedIn message must be no more than 300 characters',
+      message:
+        'LinkedIn message should be no more than 500 characters (guideline)',
       currentLength: content.snippet3.length,
-      maxLength: 300,
+      maxLength: 500,
     })
   }
 
@@ -171,7 +173,20 @@ export function validatePlainText(
 /**
  * Convert content from HTML format (ClaudeResponse) to plain text format
  */
-export function convertFromHtmlContent(content: any): PlainTextContent {
+export type HtmlContent = {
+  snippet1?: string
+  snippet2?: string
+  snippet3?: string
+  snippet4?: string
+  snippet5?: string
+  snippet6?: string
+  snippet7?: string
+  [key: string]: unknown
+}
+
+export function convertFromHtmlContent(
+  content: HtmlContent | ClaudeResponse
+): PlainTextContent {
   return {
     snippet1: htmlToPlainText(content.snippet1 || ''),
     snippet2: htmlToPlainText(content.snippet2 || ''),
@@ -186,22 +201,68 @@ export function convertFromHtmlContent(content: any): PlainTextContent {
 /**
  * Convert plain text content back to HTML format for validation/export
  */
+export type HtmlConvertedContent = {
+  email: string
+  first_name: string
+  last_name: string
+  company: string
+  title: string
+  linkedin_url: string
+  city: string
+  state: string
+  country: string
+  timezone: string | undefined
+  tags: string
+  industry: string
+  snippet1: string
+  snippet2: string
+  snippet3: string
+  snippet4: string
+  snippet5: string
+  snippet6: string
+  snippet7: string
+}
+
+type LeadLike = Partial<
+  Pick<
+    HtmlConvertedContent,
+    | 'email'
+    | 'first_name'
+    | 'last_name'
+    | 'company'
+    | 'title'
+    | 'linkedin_url'
+    | 'city'
+    | 'state'
+    | 'country'
+    | 'timezone'
+    | 'tags'
+    | 'industry'
+  >
+>
+
 export function convertToHtmlContent(
   plainText: PlainTextContent,
-  leadData: any
-): any {
+  leadData: LeadLike
+): HtmlConvertedContent {
   // Detect timezone if not already present
-  const timezone = leadData.timezone || detectTimezone(
-    leadData.city,
-    leadData.state,
-    leadData.country
-  );
+  const timezone =
+    leadData.timezone ||
+    detectTimezone(
+      leadData.city || '',
+      leadData.state || '',
+      leadData.country || ''
+    )
 
   console.log('🌍 [ContentConverter] Adding timezone to converted content:', {
     originalTimezone: leadData.timezone,
     detectedTimezone: timezone,
-    location: { city: leadData.city, state: leadData.state, country: leadData.country }
-  });
+    location: {
+      city: leadData.city,
+      state: leadData.state,
+      country: leadData.country,
+    },
+  })
 
   return {
     // Preserve lead data
