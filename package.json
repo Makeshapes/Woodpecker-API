@@ -116,6 +116,7 @@
       "target": [
         {
           "target": "dmg",
+          "identity": null,
           "arch": [
             "universal"
           ]
@@ -124,10 +125,8 @@
       "icon": "assets/icons/icon.icns",
       "category": "public.app-category.productivity",
       "minimumSystemVersion": "10.14.0",
-      "hardenedRuntime": true,
-      "gatekeeperAssess": false,
-      "entitlements": "assets/entitlements.plist",
-      "entitlementsInherit": "assets/entitlements.plist"
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
     },
     "dmg": {
       "title": "Woodpecker API Installer",
