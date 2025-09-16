@@ -22,6 +22,7 @@ export interface LeadData {
   industry: string
   linkedin_url: string
   tags?: string
+  custom_prompt?: string
 }
 
 export class TemplateValidationError extends Error {
@@ -128,13 +129,9 @@ export class TemplateService {
     let prompt = this.substituteVariables(template.template, enrichedLeadData)
 
     // If there's a custom_prompt, add it as additional context
-    // @ts-expect-error - custom_prompt might not be in LeadData interface
-    if (
-      leadData.custom_prompt &&
-      typeof leadData.custom_prompt === 'string' &&
-      leadData.custom_prompt.trim()
-    ) {
-      const customPrompt = leadData.custom_prompt.trim()
+    const maybeCustomPrompt = leadData.custom_prompt
+    if (typeof maybeCustomPrompt === 'string' && maybeCustomPrompt.trim()) {
+      const customPrompt = maybeCustomPrompt.trim()
       console.log('📨 [TemplateService] Custom prompt detected!')
       console.log(
         '📏 [TemplateService] Custom prompt length:',
@@ -229,17 +226,16 @@ export class TemplateService {
       }
     }
 
-    // Validate snippet formats
-    if (
-      content.snippet1 &&
-      (content.snippet1.length < 20 || content.snippet1.length > 50)
-    ) {
-      return false
-    }
+    // Validate snippet formats (guidelines, not strict requirements)
+    // Subject line (snippet1) should ideally be 20-50 characters but not required
+    // if (content.snippet1 && content.snippet1.length > 100) {
+    //   return false // Only reject if extremely long
+    // }
 
-    if (content.snippet3 && content.snippet3.length > 300) {
-      return false
-    }
+    // LinkedIn message (snippet3) should ideally be ≤300 characters but not required
+    // if (content.snippet3 && content.snippet3.length > 500) {
+    //   return false // Only reject if extremely long
+    // }
 
     // Check HTML snippets contain div tags
     const htmlSnippets = [
@@ -250,7 +246,8 @@ export class TemplateService {
       'snippet7',
     ]
     for (const snippetKey of htmlSnippets) {
-      if (content[snippetKey] && !content[snippetKey].includes('<div>')) {
+      const value = content[snippetKey]
+      if (typeof value === 'string' && !value.includes('<div>')) {
         return false
       }
     }

@@ -5,7 +5,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { vi } from 'vitest'
 import ConversionButton from '../ConversionButton'
-import { PlainTextContent } from '@/utils/contentConverter'
+import type { PlainTextContent } from '@/utils/contentConverter'
 
 // Mock the dependencies
 vi.mock('@/utils/contentConverter', () => ({
@@ -38,6 +38,10 @@ const mockLeadData = {
   industry: 'Technology',
   linkedin_url: 'https://linkedin.com/in/john',
   tags: '',
+  city: 'New York',
+  state: 'NY',
+  country: 'USA',
+  timezone: 'America/New_York',
 }
 
 describe('ConversionButton', () => {
@@ -76,12 +80,19 @@ describe('ConversionButton', () => {
     vi.mocked(convertToHtmlContent).mockReturnValue({
       ...mockPlainTextContent,
       ...mockLeadData,
+      snippet1: mockPlainTextContent.snippet1,
+      snippet2: '<div>line</div>',
+      snippet3: mockPlainTextContent.snippet3,
+      snippet4: '<div>line</div>',
+      snippet5: '<div>line</div>',
+      snippet6: '<div>line</div>',
+      snippet7: '<div>line</div>',
     })
     vi.mocked(TemplateService).mockImplementation(
       () =>
         ({
           validateGeneratedContent: vi.fn().mockReturnValue(true),
-        }) as any
+        }) as unknown as InstanceType<typeof TemplateService>
     )
 
     render(
@@ -116,9 +127,17 @@ describe('ConversionButton', () => {
     vi.mocked(convertToHtmlContent).mockReturnValue({
       ...mockPlainTextContent,
       ...mockLeadData,
+      snippet1: mockPlainTextContent.snippet1,
+      snippet2: '<div>line</div>',
+      snippet3: mockPlainTextContent.snippet3,
+      snippet4: '<div>line</div>',
+      snippet5: '<div>line</div>',
+      snippet6: '<div>line</div>',
+      snippet7: '<div>line</div>',
     })
     vi.mocked(TemplateService).mockImplementation(
-      () => mockTemplateService as any
+      () =>
+        mockTemplateService as unknown as InstanceType<typeof TemplateService>
     )
 
     render(
@@ -190,7 +209,8 @@ describe('ConversionButton', () => {
       ...mockLeadData,
     })
     vi.mocked(TemplateService).mockImplementation(
-      () => mockTemplateService as any
+      () =>
+        mockTemplateService as unknown as InstanceType<typeof TemplateService>
     )
 
     render(
@@ -228,12 +248,23 @@ describe('ConversionButton', () => {
       validateGeneratedContent: vi.fn().mockReturnValue(true),
     }
 
-    const convertedContent = { ...mockPlainTextContent, ...mockLeadData }
+    const convertedContent = {
+      ...mockLeadData,
+      ...mockPlainTextContent,
+      snippet1: mockPlainTextContent.snippet1,
+      snippet2: '<div>line</div>',
+      snippet3: mockPlainTextContent.snippet3,
+      snippet4: '<div>line</div>',
+      snippet5: '<div>line</div>',
+      snippet6: '<div>line</div>',
+      snippet7: '<div>line</div>',
+    }
 
     vi.mocked(validatePlainText).mockReturnValue({ isValid: true, errors: [] })
     vi.mocked(convertToHtmlContent).mockReturnValue(convertedContent)
     vi.mocked(TemplateService).mockImplementation(
-      () => mockTemplateService as any
+      () =>
+        mockTemplateService as unknown as InstanceType<typeof TemplateService>
     )
 
     render(
@@ -270,11 +301,19 @@ describe('ConversionButton', () => {
 
     vi.mocked(validatePlainText).mockReturnValue({ isValid: true, errors: [] })
     vi.mocked(convertToHtmlContent).mockReturnValue({
-      ...mockPlainTextContent,
       ...mockLeadData,
+      ...mockPlainTextContent,
+      snippet1: mockPlainTextContent.snippet1,
+      snippet2: '<div>line</div>',
+      snippet3: mockPlainTextContent.snippet3,
+      snippet4: '<div>line</div>',
+      snippet5: '<div>line</div>',
+      snippet6: '<div>line</div>',
+      snippet7: '<div>line</div>',
     })
     vi.mocked(TemplateService).mockImplementation(
-      () => mockTemplateService as any
+      () =>
+        mockTemplateService as unknown as InstanceType<typeof TemplateService>
     )
 
     render(

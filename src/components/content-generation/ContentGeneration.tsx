@@ -56,10 +56,8 @@ import { processFile, formatFileSize } from '@/utils/fileHandler'
 import {
   type PlainTextContent,
   convertFromHtmlContent,
-  convertToHtmlContent,
 } from '@/utils/contentConverter'
 import PlainTextEditor from './PlainTextEditor'
-import ConversionButton from './ConversionButton'
 
 interface ContentGenerationProps {
   lead: LeadData
@@ -133,7 +131,8 @@ export function ContentGeneration({
   onContentUpdate,
 }: ContentGenerationProps) {
   // Feature flag for enhanced editing (Story 1.5)
-  const useEnhancedEditing = import.meta.env.VITE_ENABLE_ENHANCED_EDITING === 'true'
+  const useEnhancedEditing =
+    import.meta.env.VITE_ENABLE_ENHANCED_EDITING === 'true'
 
   const [isGenerating, setIsGenerating] = useState(false)
   const [content, setContent] = useState<ClaudeResponse | null>(null)
@@ -153,7 +152,9 @@ export function ContentGeneration({
   const [generationMode, setGenerationMode] = useState<GenerationMode>('claude')
 
   // Enhanced editing state (Story 1.5)
-  const [editingMode, setEditingMode] = useState<'html' | 'plaintext'>('plaintext')
+  const [editingMode, setEditingMode] = useState<'html' | 'plaintext'>(
+    'plaintext'
+  )
   const [plainTextContent, setPlainTextContent] = useState<PlainTextContent>({
     snippet1: '',
     snippet2: '',
@@ -163,9 +164,10 @@ export function ContentGeneration({
     snippet6: '',
     snippet7: '',
   })
-  const [editingPlainTextField, setEditingPlainTextField] = useState<string | null>(null)
+  const [editingPlainTextField, setEditingPlainTextField] = useState<
+    string | null
+  >(null)
   const [showJsonOutput, setShowJsonOutput] = useState(false)
-  const [convertedHtmlContent, setConvertedHtmlContent] = useState<ClaudeResponse | null>(null)
 
   // Calculate token counts and pricing
   const tokenInfo = useMemo(() => {
@@ -260,11 +262,17 @@ export function ContentGeneration({
 
   // Load existing content when lead changes
   useEffect(() => {
-    console.log('🔄 [ContentGeneration] Lead changed, loading content for:', lead.email || lead.id)
+    console.log(
+      '🔄 [ContentGeneration] Lead changed, loading content for:',
+      lead.email || lead.id
+    )
     const leadId = btoa(String(lead.email || lead.id)).replace(/[/+=]/g, '')
     const existingContent = contentGenerationService.getLeadContent(leadId)
 
-    console.log('🔄 [ContentGeneration] Found existing content:', !!existingContent)
+    console.log(
+      '🔄 [ContentGeneration] Found existing content:',
+      !!existingContent
+    )
 
     if (existingContent) {
       setContent(existingContent)
@@ -274,14 +282,26 @@ export function ContentGeneration({
 
   // Convert HTML to plain text when enhanced editing is enabled and we have content but no plain text
   useEffect(() => {
-    if (useEnhancedEditing && content && !plainTextContent.snippet1 && !plainTextContent.snippet2) {
-      console.log('🔄 [ContentGeneration] Converting HTML to plain text for enhanced editing')
+    if (
+      useEnhancedEditing &&
+      content &&
+      !plainTextContent.snippet1 &&
+      !plainTextContent.snippet2
+    ) {
+      console.log(
+        '🔄 [ContentGeneration] Converting HTML to plain text for enhanced editing'
+      )
       const plainText = convertFromHtmlContent(content)
       setPlainTextContent(plainText)
       setEditingMode('plaintext')
       setShowJsonOutput(false)
     }
-  }, [useEnhancedEditing, content, plainTextContent.snippet1, plainTextContent.snippet2])
+  }, [
+    useEnhancedEditing,
+    content,
+    plainTextContent.snippet1,
+    plainTextContent.snippet2,
+  ])
 
   // Initialize system prompt
   useEffect(() => {
@@ -764,12 +784,16 @@ Dan`
 
         // Enhanced editing: Convert HTML content to plain text for editing (Story 1.5)
         if (useEnhancedEditing) {
-          console.log('🔄 [Enhanced Editing] Converting HTML content to plain text...')
+          console.log(
+            '🔄 [Enhanced Editing] Converting HTML content to plain text...'
+          )
           const plainText = convertFromHtmlContent(result.content)
           setPlainTextContent(plainText)
           setEditingMode('plaintext')
           setShowJsonOutput(false)
-          console.log('✅ [Enhanced Editing] Content converted to plain text for editing')
+          console.log(
+            '✅ [Enhanced Editing] Content converted to plain text for editing'
+          )
         }
 
         console.log(
@@ -1039,21 +1063,15 @@ Dan`
         </div>
 
         {/* Custom Prompt Section - Disabled for templates */}
-        <div
-          className={`space-y-2 ${generationMode === 'templates' ? 'opacity-50' : ''}`}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">
-                Your Prompt {generationMode === 'templates' && '(Not Used)'}
-              </label>
-              {generationMode !== 'templates' && (
+        {generationMode !== 'templates' && (
+          <div className={`space-y-2`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Your Prompt</label>
                 <span className="text-xs text-muted-foreground">
                   ({estimateTokens(customPrompt).toLocaleString()} tokens)
                 </span>
-              )}
-            </div>
-            {generationMode !== 'templates' && (
+              </div>
               <label className="cursor-pointer">
                 <input
                   type="file"
@@ -1069,109 +1087,98 @@ Dan`
                   </span>
                 </Button>
               </label>
-            )}
-          </div>
-
-          <div
-            className={`relative ${isDragging ? 'ring-2 ring-primary' : ''}`}
-          >
-            <Textarea
-              value={customPrompt}
-              onChange={(e) => setCustomPrompt(e.target.value)}
-              onPaste={generationMode !== 'templates' ? handlePaste : undefined}
-              onDragOver={
-                generationMode !== 'templates' ? handleDragOver : undefined
-              }
-              onDragLeave={
-                generationMode !== 'templates' ? handleDragLeave : undefined
-              }
-              onDrop={generationMode !== 'templates' ? handleDrop : undefined}
-              placeholder={
-                generationMode === 'templates'
-                  ? 'Templates mode selected - prompt not used'
-                  : `Tell me about ${getFieldValue('contact') || 'this lead'}`
-              }
-              rows={4}
-              className="min-h-[100px]"
-              disabled={generationMode === 'templates'}
-            />
-            {isDragging && (
-              <div className="absolute inset-0 bg-primary/5 flex items-center justify-center pointer-events-none rounded-md">
-                <div className="text-primary text-sm font-medium">
-                  Drop files here
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* File Attachments - Hidden for templates mode */}
-          {generationMode !== 'templates' && fileAttachments.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span>Attached Files </span>
-                {tokenInfo.attachmentTokens > 0 && (
-                  <span>
-                    (~{tokenInfo.attachmentTokens.toLocaleString()} tokens)
-                  </span>
-                )}
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                {fileAttachments.map((file) => (
-                  <div
-                    key={file.id}
-                    className={`flex items-center gap-2 p-2 border rounded-md ${
-                      file.uploading
-                        ? 'bg-blue-50 border-blue-200'
-                        : file.file_id
-                          ? 'bg-green-50 border-green-200'
-                          : 'bg-red-50 border-red-200'
-                    }`}
-                  >
-                    {file.uploading ? (
-                      <Loader2 className="h-8 w-8 text-blue-500 animate-spin" />
-                    ) : file.preview ? (
-                      <img
-                        src={file.preview}
-                        alt={file.name}
-                        className="h-8 w-8 object-cover rounded"
-                      />
-                    ) : file.type === 'application/pdf' ? (
-                      <FileText className="h-8 w-8 text-red-500" />
-                    ) : (
-                      <Image className="h-8 w-8 text-blue-500" />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-medium truncate">
-                        {file.name}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {formatFileSize(file.size)}
-                        {file.uploading && ' - Uploading...'}
-                        {file.file_id && ' - Files API'}
-                        {!file.uploading && !file.file_id && ' - Base64'}
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeFile(file.id)}
-                      className="h-6 w-6 p-0"
-                      disabled={file.uploading}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
             </div>
-          )}
 
-          {/* System Prompt Accordion - Disabled for templates */}
-          <Accordion
-            type="single"
-            collapsible
-            className={`w-full ${generationMode === 'templates' ? 'opacity-50' : ''}`}
-          >
+            <div
+              className={`relative ${isDragging ? 'ring-2 ring-primary' : ''}`}
+            >
+              <Textarea
+                value={customPrompt}
+                onChange={(e) => setCustomPrompt(e.target.value)}
+                onPaste={handlePaste}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                placeholder={`Tell me about ${getFieldValue('contact') || 'this lead'}`}
+                rows={4}
+                className="min-h-[100px]"
+              />
+              {isDragging && (
+                <div className="absolute inset-0 bg-primary/5 flex items-center justify-center pointer-events-none rounded-md">
+                  <div className="text-primary text-sm font-medium">
+                    Drop files here
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* File Attachments - Hidden for templates mode */}
+        {generationMode !== 'templates' && fileAttachments.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>Attached Files </span>
+              {tokenInfo.attachmentTokens > 0 && (
+                <span>
+                  (~{tokenInfo.attachmentTokens.toLocaleString()} tokens)
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {fileAttachments.map((file) => (
+                <div
+                  key={file.id}
+                  className={`flex items-center gap-2 p-2 border rounded-md ${
+                    file.uploading
+                      ? 'bg-blue-50 border-blue-200'
+                      : file.file_id
+                        ? 'bg-green-50 border-green-200'
+                        : 'bg-red-50 border-red-200'
+                  }`}
+                >
+                  {file.uploading ? (
+                    <Loader2 className="h-8 w-8 text-blue-500 animate-spin" />
+                  ) : file.preview ? (
+                    <img
+                      src={file.preview}
+                      alt={file.name}
+                      className="h-8 w-8 object-cover rounded"
+                    />
+                  ) : file.type === 'application/pdf' ? (
+                    <FileText className="h-8 w-8 text-red-500" />
+                  ) : (
+                    <Image className="h-8 w-8 text-blue-500" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-medium truncate">
+                      {file.name}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {formatFileSize(file.size)}
+                      {file.uploading && ' - Uploading...'}
+                      {file.file_id && ' - Files API'}
+                      {!file.uploading && !file.file_id && ' - Base64'}
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeFile(file.id)}
+                    className="h-6 w-6 p-0"
+                    disabled={file.uploading}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* System Prompt & Model Sections - hidden for templates */}
+        {generationMode !== 'templates' && (
+          <Accordion type="single" collapsible className={`w-full`}>
             <AccordionItem value="system-prompt">
               <AccordionTrigger
                 className="text-sm font-medium"
@@ -1238,7 +1245,7 @@ Dan`
               </AccordionContent>
             </AccordionItem>
 
-            {/* Model Selection Accordion - Disabled for templates */}
+            {/* Model Selection Accordion */}
             <AccordionItem value="model-settings">
               <AccordionTrigger
                 className="text-sm font-medium"
@@ -1354,7 +1361,7 @@ Dan`
               </AccordionContent>
             </AccordionItem>
           </Accordion>
-        </div>
+        )}
       </div>
 
       <div className="flex justify-end mt-4">
@@ -1510,29 +1517,14 @@ Dan`
   }
 
   // Enhanced editing callbacks (Story 1.5)
-  const handlePlainTextContentChange = useCallback((newContent: PlainTextContent) => {
-    console.log('📝 [Enhanced Editing] Received new content:', newContent)
-    setPlainTextContent(newContent)
-    console.log('📝 [Enhanced Editing] Plain text content updated in state')
-  }, [])
-
-  const handleConversionComplete = useCallback((htmlContent: ClaudeResponse) => {
-    console.log('✅ [Enhanced Editing] Conversion to HTML completed')
-    setConvertedHtmlContent(htmlContent)
-    setContent(htmlContent)
-    onContentUpdate?.(htmlContent)
-
-    // Save converted content to localStorage
-    const leadId = btoa(String(lead.email || lead.id)).replace(/[/+=]/g, '')
-    localStorage.setItem(`lead_content_${leadId}`, JSON.stringify(htmlContent))
-
-    toast.success('Content converted to HTML format')
-  }, [lead.email, lead.id, onContentUpdate])
-
-  const handleShowJsonOutput = useCallback((show: boolean) => {
-    setShowJsonOutput(show)
-    console.log(`📄 [Enhanced Editing] JSON output ${show ? 'shown' : 'hidden'}`)
-  }, [])
+  const handlePlainTextContentChange = useCallback(
+    (newContent: PlainTextContent) => {
+      console.log('📝 [Enhanced Editing] Received new content:', newContent)
+      setPlainTextContent(newContent)
+      console.log('📝 [Enhanced Editing] Plain text content updated in state')
+    },
+    []
+  )
 
   const renderContent = (snippet: SnippetConfig) => {
     const snippetContent = content?.[snippet.key]
@@ -1703,8 +1695,7 @@ Dan`
                 <p className="text-xs text-muted-foreground">
                   {useEnhancedEditing
                     ? 'Edit content in plain text - click "Prepare JSON" when ready'
-                    : '7 snippets for 6-touchpoint email sequence'
-                  }
+                    : '7 snippets for 6-touchpoint email sequence'}
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -1712,11 +1703,17 @@ Dan`
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setEditingMode(editingMode === 'plaintext' ? 'html' : 'plaintext')}
+                    onClick={() =>
+                      setEditingMode(
+                        editingMode === 'plaintext' ? 'html' : 'plaintext'
+                      )
+                    }
                     disabled={isGenerating}
                     className="gap-2"
                   >
-                    {editingMode === 'plaintext' ? 'View HTML' : 'Edit Plain Text'}
+                    {editingMode === 'plaintext'
+                      ? 'View HTML'
+                      : 'Edit Plain Text'}
                   </Button>
                 )}
                 <Button
@@ -1740,7 +1737,6 @@ Dan`
                       })
                       setEditingMode('plaintext')
                       setShowJsonOutput(false)
-                      setConvertedHtmlContent(null)
                     }
 
                     // Clear localStorage using service
@@ -1769,30 +1765,12 @@ Dan`
             {useEnhancedEditing ? (
               <div className="space-y-6">
                 {editingMode === 'plaintext' ? (
-                  <>
-                    <PlainTextEditor
-                      content={plainTextContent}
-                      onChange={handlePlainTextContentChange}
-                      editingField={editingPlainTextField}
-                      onEditField={setEditingPlainTextField}
-                    />
-
-                    <ConversionButton
-                      plainTextContent={plainTextContent}
-                      leadData={{
-                        first_name: getFieldValue('contact')?.split(' ')[0] || 'There',
-                        last_name: getFieldValue('contact')?.split(' ').slice(1).join(' ') || '',
-                        company: getFieldValue('company') || '',
-                        title: getFieldValue('title') || '',
-                        email: getFieldValue('email') || '',
-                        industry: getFieldValue('industry') || 'Technology',
-                        linkedin_url: getFieldValue('linkedin') || '',
-                        tags: ''
-                      }}
-                      onConversionComplete={handleConversionComplete}
-                      onShowJson={handleShowJsonOutput}
-                    />
-                  </>
+                  <PlainTextEditor
+                    content={plainTextContent}
+                    onChange={handlePlainTextContentChange}
+                    editingField={editingPlainTextField}
+                    onEditField={setEditingPlainTextField}
+                  />
                 ) : (
                   <div className="space-y-4">{SNIPPETS.map(renderContent)}</div>
                 )}
@@ -1801,52 +1779,112 @@ Dan`
               <div className="space-y-4">{SNIPPETS.map(renderContent)}</div>
             )}
 
-            {/* JSON Output Section - conditionally shown for enhanced editing */}
-            {(!useEnhancedEditing || showJsonOutput) && (
+            {/* Approval and JSON Output Section */}
+            {useEnhancedEditing && content && (
+              <div className="space-y-4">
+                {/* Generated Content JSON - only shown after approval */}
+                {showJsonOutput && (
+                  <Accordion type="single" collapsible className="w-full">
+                    <AccordionItem value="json-output">
+                      <AccordionTrigger className="text-sm">
+                        <div className="flex items-center gap-2">
+                          <Hash className="h-4 w-4" />
+                          Generated Content JSON
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="space-y-4">
+                          <div>
+                            <div className="text-xs text-muted-foreground mb-2">
+                              Complete JSON Response:
+                            </div>
+                            <div className="text-xs font-mono border rounded p-3 bg-muted/50 max-h-96 overflow-auto">
+                              <pre>{JSON.stringify(content, null, 2)}</pre>
+                            </div>
+                          </div>
+
+                          {/* HTML Source for each snippet */}
+                          {SNIPPETS.filter((snippet) => snippet.isHtml).map(
+                            (snippet) => {
+                              const displayContent =
+                                editingSnippet === snippet.key
+                                  ? (editedContent[snippet.key] as
+                                      | string
+                                      | undefined) ||
+                                    (content?.[snippet.key] as
+                                      | string
+                                      | undefined)
+                                  : (content?.[snippet.key] as
+                                      | string
+                                      | undefined) || ''
+
+                              return (
+                                <div key={snippet.key}>
+                                  <div className="text-xs text-muted-foreground mb-2">
+                                    {snippet.label} HTML:
+                                  </div>
+                                  <div className="text-xs font-mono border rounded p-3 bg-muted/50 max-h-48 overflow-auto">
+                                    <pre>{displayContent}</pre>
+                                  </div>
+                                </div>
+                              )
+                            }
+                          )}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+                )}
+              </div>
+            )}
+
+            {/* Original JSON output for non-enhanced editing mode */}
+            {!useEnhancedEditing && content && (
               <Accordion type="single" collapsible className="w-full">
                 <AccordionItem value="json-output">
                   <AccordionTrigger className="text-sm">
                     <div className="flex items-center gap-2">
                       <Hash className="h-4 w-4" />
-                      {useEnhancedEditing ? 'Export-Ready JSON & HTML Source' : 'Generated Content JSON & HTML Source'}
+                      Generated Content JSON & HTML Source
                     </div>
                   </AccordionTrigger>
                   <AccordionContent>
-                  <div className="space-y-4">
-                    <div>
-                      <div className="text-xs text-muted-foreground mb-2">
-                        Complete JSON Response:
+                    <div className="space-y-4">
+                      <div>
+                        <div className="text-xs text-muted-foreground mb-2">
+                          Complete JSON Response:
+                        </div>
+                        <div className="text-xs font-mono border rounded p-3 bg-muted/50 max-h-96 overflow-auto">
+                          <pre>{JSON.stringify(content, null, 2)}</pre>
+                        </div>
                       </div>
-                      <div className="text-xs font-mono border rounded p-3 bg-muted/50 max-h-96 overflow-auto">
-                        <pre>{JSON.stringify(content, null, 2)}</pre>
-                      </div>
+
+                      {/* HTML Source for each snippet */}
+                      {SNIPPETS.filter((snippet) => snippet.isHtml).map(
+                        (snippet) => {
+                          const displayContent =
+                            editingSnippet === snippet.key
+                              ? (editedContent[snippet.key] as
+                                  | string
+                                  | undefined) ||
+                                (content?.[snippet.key] as string | undefined)
+                              : (content?.[snippet.key] as
+                                  | string
+                                  | undefined) || ''
+
+                          return (
+                            <div key={`html-${snippet.key}`}>
+                              <div className="text-xs text-muted-foreground mb-2">
+                                {snippet.label} - HTML Source:
+                              </div>
+                              <div className="text-xs font-mono border rounded p-3 bg-muted/50 max-h-48 overflow-auto">
+                                {String(displayContent)}
+                              </div>
+                            </div>
+                          )
+                        }
+                      )}
                     </div>
-
-                    {/* HTML Source for each snippet */}
-                    {SNIPPETS.filter((snippet) => snippet.isHtml).map(
-                      (snippet) => {
-                        const displayContent =
-                          editingSnippet === snippet.key
-                            ? (editedContent[snippet.key] as
-                                | string
-                                | undefined) ||
-                              (content?.[snippet.key] as string | undefined)
-                            : (content?.[snippet.key] as string | undefined) ||
-                              ''
-
-                        return (
-                          <div key={`html-${snippet.key}`}>
-                            <div className="text-xs text-muted-foreground mb-2">
-                              {snippet.label} - HTML Source:
-                            </div>
-                            <div className="text-xs font-mono border rounded p-3 bg-muted/50 max-h-48 overflow-auto">
-                              {String(displayContent)}
-                            </div>
-                          </div>
-                        )
-                      }
-                    )}
-                  </div>
                   </AccordionContent>
                 </AccordionItem>
               </Accordion>

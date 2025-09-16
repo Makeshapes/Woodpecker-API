@@ -9,7 +9,12 @@ export interface ColumnMapping {
   [key: string]: string // original header -> mapped field
 }
 
-export type LeadStatus = 'imported' | 'generating' | 'drafted' | 'exported'
+export type LeadStatus =
+  | 'imported'
+  | 'generating'
+  | 'drafted'
+  | 'approved'
+  | 'exported'
 
 export interface LeadData {
   id: string

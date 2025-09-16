@@ -71,9 +71,8 @@ Curious if these are challenges you are facing at {{COMPANY}}. If so, interested
         {
           step: 4,
           type: 'email',
-          subject:
-            'Re: Fw: Meeting with {{FIRST_NAME}} - Delivering group learning at scale',
-          description: 'Day 3 - Email with social proof',
+          subject: '',
+          description: 'Day 7 - Email with social proof',
           body: `{{FIRST_NAME}}—for context, we're helping organisations like QBE Insurance, Westpac Bank, AirNZ, Zespri International and others deliver various formats of group learning (leader-led, peer-to-peer, train-the-trainer).
 
 Open to learning more?
@@ -83,9 +82,8 @@ Open to learning more?
         {
           step: 5,
           type: 'email',
-          subject:
-            'Re: Fw: Meeting with {{FIRST_NAME}} - Delivering group learning at scale',
-          description: 'Day 4 - Email with video case study',
+          subject: '',
+          description: 'Day 12 - Email with video case study',
           body: `{{FIRST_NAME}},
 
 I'm conscious there's a lot of noise in the learning tech space—everyone saying they have something unique. 
@@ -101,9 +99,8 @@ If it piques your curiosity let's find time to have a call.
         {
           step: 6,
           type: 'email',
-          subject:
-            'Re: Fw: Meeting with {{FIRST_NAME}} - Delivering group learning at scale',
-          description: 'Day 5 - Demo offer email',
+          subject: '',
+          description: 'Day 17 - Demo offer email',
           body: `{{FIRST_NAME}}, sometimes it's easier to show, rather than tell. Just reply "yes" if you're interested in me sharing a demo link to an experience with you.
 
 Alternatively happy to book in some time and give you a live demo.
@@ -115,9 +112,8 @@ PS - If there is someone else in the team that I should speak with, let me know.
         {
           step: 7,
           type: 'email',
-          subject:
-            'Re: Fw: Meeting with {{FIRST_NAME}} - Delivering group learning at scale',
-          description: 'Day 7 - Final breakup email',
+          subject: '',
+          description: 'Day 25 - Final breakup email',
           body: `{{FIRST_NAME}},
 
 I'll stop reaching out for now, but wanted to leave you with this thought:
