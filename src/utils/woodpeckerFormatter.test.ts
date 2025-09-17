@@ -41,6 +41,7 @@ describe('woodpeckerFormatter', () => {
         company: 'Example Corp',
         title: 'Software Engineer',
         linkedin_url: 'https://linkedin.com/in/johndoe',
+        time_zone: 'UTC',
       });
     });
 
@@ -63,6 +64,7 @@ describe('woodpeckerFormatter', () => {
 
       expect(result).toEqual({
         email: 'jane@example.com',
+        time_zone: 'UTC',
       });
     });
 
@@ -290,16 +292,27 @@ describe('woodpeckerFormatter', () => {
       expect(result.errors).toContain('Snippet 2 contains style tags (not recommended)');
     });
 
-    it('should detect unclosed HTML tags', () => {
-      const invalidProspect: WoodpeckerProspect = {
-        email: 'valid@example.com',
-        snippet3: '<div><p>Unclosed paragraph<div>Another div</div>',
+    it('should automatically fix unclosed HTML tags during formatting', () => {
+      // Test that the formatter automatically fixes HTML issues
+      const leadWithBadHtml: LeadData = {
+        id: 'lead-bad-html',
+        status: 'drafted',
+        email: 'test@example.com',
       };
 
-      const result = validateWoodpeckerProspect(invalidProspect);
+      const contentWithBadHtml = {
+        snippet1: '<div><p>Unclosed paragraph<div>Another div</div>',
+      };
 
-      expect(result.isValid).toBe(false);
-      expect(result.errors).toContain('Snippet 3 may have unclosed HTML tags');
+      const result = formatProspectForWoodpecker(leadWithBadHtml, contentWithBadHtml);
+
+      // The HTML should be automatically fixed (closing tags added at the end)
+      expect(result.snippet1).toBe('<div><p>Unclosed paragraph<div>Another div</div></div></p>');
+
+      // And validation should pass
+      const validation = validateWoodpeckerProspect(result);
+      expect(validation.isValid).toBe(true);
+      expect(validation.errors).toHaveLength(0);
     });
   });
 

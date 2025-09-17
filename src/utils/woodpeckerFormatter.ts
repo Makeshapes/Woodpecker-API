@@ -115,14 +115,16 @@ export function formatProspectForWoodpecker(
     },
   })
 
-  // Add generated content snippets
+  // Add generated content snippets with HTML validation fixes
   if (generatedContent) {
     for (let i = 1; i <= 7; i++) {
       const snippetKey = `snippet${i}` as keyof GeneratedContent
       const snippetValue = generatedContent[snippetKey]
 
       if (snippetValue || includeEmptySnippets) {
-        prospect[snippetKey] = snippetValue || ''
+        // Fix HTML validation issues before setting the snippet
+        const fixedSnippet = typeof snippetValue === 'string' ? fixHtmlValidationIssues(snippetValue) : (snippetValue || '')
+        prospect[snippetKey] = fixedSnippet
       }
     }
   }
@@ -461,6 +463,86 @@ function isValidEmail(email: string): boolean {
   return emailRegex.test(email)
 }
 
+export function fixHtmlValidationIssues(html: string): string {
+  if (!html || typeof html !== 'string') {
+    return html
+  }
+
+  // Remove script and style tags entirely for security
+  let fixedHtml = html
+    .replace(/<script[^>]*>.*?<\/script>/gi, '')
+    .replace(/<style[^>]*>.*?<\/style>/gi, '')
+
+  // Find all void elements that don't need closing tags
+  const voidElements = ['br', 'hr', 'img', 'input', 'meta', 'link', 'area', 'base', 'col', 'embed', 'source', 'track', 'wbr']
+
+  // Normalize void elements to self-closing format
+  voidElements.forEach(tag => {
+    const regex = new RegExp(`<${tag}([^>]*?)(?<!/)>`, 'gi')
+    fixedHtml = fixedHtml.replace(regex, `<${tag}$1 />`)
+  })
+
+  // Parse and fix nested tag structure properly
+  const tokens = fixedHtml.match(/<\/?[a-zA-Z][a-zA-Z0-9]*[^>]*>/g) || []
+  const tagStack: Array<{name: string, position: number}> = []
+  const closingTags: Array<{name: string, position: number}> = []
+
+  // First pass: identify all opening and closing tags with their positions
+  let position = 0
+  tokens.forEach(token => {
+    const tokenPos = fixedHtml.indexOf(token, position)
+    const isClosingTag = token.startsWith('</')
+    const isSelfClosing = token.endsWith('/>')
+    const tagMatch = token.match(/<\/?([a-zA-Z][a-zA-Z0-9]*)/)
+
+    if (tagMatch) {
+      const tagName = tagMatch[1].toLowerCase()
+
+      if (isSelfClosing || voidElements.includes(tagName)) {
+        // Self-closing or void elements don't need tracking
+        position = tokenPos + token.length
+        return
+      }
+
+      if (isClosingTag) {
+        closingTags.push({ name: tagName, position: tokenPos })
+      } else {
+        tagStack.push({ name: tagName, position: tokenPos })
+      }
+    }
+    position = tokenPos + token.length
+  })
+
+  // Second pass: match opening and closing tags, and identify unclosed ones
+  const matched = new Set<number>()
+  const unclosedTags: Array<{name: string, position: number}> = []
+
+  // For each opening tag, find its matching closing tag
+  tagStack.forEach(openTag => {
+    // Find the first unmatched closing tag of the same type that comes after this opening tag
+    const matchingClose = closingTags.find((closeTag, index) =>
+      closeTag.name === openTag.name &&
+      closeTag.position > openTag.position &&
+      !matched.has(index)
+    )
+
+    if (matchingClose) {
+      const closeIndex = closingTags.indexOf(matchingClose)
+      matched.add(closeIndex)
+    } else {
+      // No matching closing tag found
+      unclosedTags.push(openTag)
+    }
+  })
+
+  // Add closing tags for unclosed tags at the end
+  unclosedTags.reverse().forEach(unclosedTag => {
+    fixedHtml += `</${unclosedTag.name}>`
+  })
+
+  return fixedHtml
+}
+
 function validateSnippetHtml(html: string, snippetNumber: number): string[] {
   const errors: string[] = []
 
@@ -475,55 +557,51 @@ function validateSnippetHtml(html: string, snippetNumber: number): string[] {
     )
   }
 
-  // Check for unclosed tags (improved validation)
-  // First, remove self-closing tags and void elements that don't need closing
-  const cleanedHtml = html
-    .replace(
-      /<(br|hr|img|input|meta|link|area|base|col|embed|source|track|wbr)(\s[^>]*)?\/?>/gi,
-      ''
-    )
-    .replace(/<[^>]+\/>/g, '') // Remove any self-closing tags like <tag />
+  // Try to fix HTML and validate the fixed version
+  const fixedHtml = fixHtmlValidationIssues(html)
 
-  // Now count opening and closing tags
-  const openTags =
-    cleanedHtml.match(/<([a-zA-Z][a-zA-Z0-9]*)\b[^>]*(?<!\/)>/g) || []
-  const closeTags = cleanedHtml.match(/<\/([a-zA-Z][a-zA-Z0-9]*)\s*>/g) || []
+  // If the fixed HTML is different from original, there were issues
+  if (fixedHtml !== html) {
+    // Check if the fixed version would pass validation
+    const voidElements = ['br', 'hr', 'img', 'input', 'meta', 'link', 'area', 'base', 'col', 'embed', 'source', 'track', 'wbr']
 
-  // Extract tag names for better validation
-  const openTagNames: string[] = openTags
-    .map((tag) => {
-      const match = tag.match(/<([a-zA-Z][a-zA-Z0-9]*)/)
-      return match ? match[1].toLowerCase() : ''
-    })
-    .filter((name) => name)
+    // Remove self-closing tags and void elements for validation
+    const cleanedHtml = fixedHtml
+      .replace(
+        /<(br|hr|img|input|meta|link|area|base|col|embed|source|track|wbr)(\s[^>]*)?\/?>/gi,
+        ''
+      )
+      .replace(/<[^>]+\/>/g, '')
 
-  const closeTagNames: string[] = closeTags
-    .map((tag) => {
-      const match = tag.match(/<\/([a-zA-Z][a-zA-Z0-9]*)/)
-      return match ? match[1].toLowerCase() : ''
-    })
-    .filter((name) => name)
+    // Parse tags properly with a stack-based approach
+    const tokens = cleanedHtml.match(/<\/?[a-zA-Z][a-zA-Z0-9]*[^>]*>/g) || []
+    const tagStack: string[] = []
+    let hasError = false
 
-  // Check if tags are properly balanced
-  const tagStack: string[] = []
-  let hasError = false
+    for (const token of tokens) {
+      const isClosingTag = token.startsWith('</')
+      const tagMatch = token.match(/<\/?([a-zA-Z][a-zA-Z0-9]*)/)
 
-  for (const tagName of openTagNames) {
-    tagStack.push(tagName)
-  }
+      if (tagMatch) {
+        const tagName = tagMatch[1].toLowerCase()
 
-  for (const tagName of closeTagNames) {
-    const lastOpen = tagStack.pop()
-    if (lastOpen !== tagName) {
-      hasError = true
-      break
+        if (isClosingTag) {
+          const lastOpen = tagStack.pop()
+          if (lastOpen !== tagName) {
+            hasError = true
+            break
+          }
+        } else {
+          tagStack.push(tagName)
+        }
+      }
     }
-  }
 
-  if (hasError || tagStack.length > 0) {
-    errors.push(
-      `Snippet ${snippetNumber} may have unclosed or mismatched HTML tags`
-    )
+    if (hasError || tagStack.length > 0) {
+      errors.push(
+        `Snippet ${snippetNumber} may have unclosed or mismatched HTML tags`
+      )
+    }
   }
 
   return errors

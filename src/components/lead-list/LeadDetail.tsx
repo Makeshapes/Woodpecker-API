@@ -267,7 +267,9 @@ export function LeadDetail({
         // Override with mapped standard fields
         email: woodpeckerFields.email || lead.email,
         company: woodpeckerFields.company || '',
-        contact: `${woodpeckerFields.first_name || ''} ${woodpeckerFields.last_name || ''}`.trim() || '',
+        contact:
+          `${woodpeckerFields.first_name || ''} ${woodpeckerFields.last_name || ''}`.trim() ||
+          '',
         title: woodpeckerFields.title || '',
         phone: woodpeckerFields.phone || '',
         city: woodpeckerFields.city || '',
@@ -362,7 +364,7 @@ export function LeadDetail({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="min-w-6xl overflow-y-auto">
+      <SheetContent side="right" className="min-w-[800px] overflow-y-auto">
         <SheetHeader className="fixed bg-background w-full z-10 border-b">
           <div className="flex items-center justify-between">
             <div>
@@ -376,7 +378,12 @@ export function LeadDetail({
                 </SheetTitle>
               </div>
               <SheetDescription>
-                {woodpeckerFields.title || ''} {woodpeckerFields.title && woodpeckerFields.company ? ' - ' : ''} {woodpeckerFields.company} {woodpeckerFields.linkedin_url && (
+                {woodpeckerFields.title || ''}{' '}
+                {woodpeckerFields.title && woodpeckerFields.company
+                  ? ' - '
+                  : ''}{' '}
+                {woodpeckerFields.company}{' '}
+                {woodpeckerFields.linkedin_url && (
                   <>
                     {' - '}
                     <Link
@@ -410,20 +417,21 @@ export function LeadDetail({
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Lead Information</CardTitle>
-              <CardDescription>
-                All lead data from your import
-              </CardDescription>
+              <CardDescription>All lead data from your import</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid md:grid-cols-2 gap-4">
                 {/* Woodpecker Standard Fields */}
                 {Object.entries(woodpeckerFields).map(([field, value]) => (
                   <div key={field} className="space-y-1">
                     <label className="text-sm font-medium text-muted-foreground capitalize">
-                      {field.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                      {field
+                        .replace('_', ' ')
+                        .replace(/\b\w/g, (l) => l.toUpperCase())}
                     </label>
                     <div className="text-sm border rounded p-2 bg-muted/50">
-                      {(field === 'linkedin_url' || field === 'website') && value ? (
+                      {(field === 'linkedin_url' || field === 'website') &&
+                      value ? (
                         <a
                           href={
                             value.startsWith('http')
