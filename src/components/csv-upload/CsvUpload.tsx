@@ -8,8 +8,13 @@ import {
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Upload, FileText, AlertCircle, CheckCircle2, X } from 'lucide-react'
-import Papa from 'papaparse'
 import { mapCsvRowToLead, mapFieldName, getStandardFields } from '@/utils/fieldMapper'
+
+// Lazy load PapaParse only when needed
+const loadPapaParse = async () => {
+  const Papa = await import('papaparse')
+  return Papa.default
+}
 
 interface CsvData {
   data: Record<string, string>[]
@@ -278,7 +283,7 @@ export function CsvUpload({ onDataLoaded, maxRows = 1000 }: CsvUploadProps) {
   )
 
   const processFile = useCallback(
-    (file: File) => {
+    async (file: File) => {
       if (!file || file.size === 0) {
         setErrors(['Please select a valid CSV file'])
         return
@@ -307,6 +312,7 @@ export function CsvUpload({ onDataLoaded, maxRows = 1000 }: CsvUploadProps) {
       }, 100)
 
       try {
+        const Papa = await loadPapaParse()
         Papa.parse(file, {
           header: true,
           skipEmptyLines: true,

@@ -199,6 +199,9 @@ async function createWindow() {
       experimentalFeatures: false,
       sandbox: false, // Required for IPC bridge
       spellcheck: false,
+      // Performance optimizations
+      backgroundThrottling: false, // Prevent throttling for better responsiveness
+      offscreen: false,
     },
   })
 
@@ -336,13 +339,15 @@ app.whenReady().then(async () => {
     setupIpcHandlers(userDataPath)
     logger.info('IPC', 'IPC handlers setup complete')
 
-    // Create application menu
-    createApplicationMenu()
-    logger.info('App', 'Application menu created')
-
-    // Create main window
+    // Create main window first for faster startup
     await createWindow()
     logger.info('App', 'Main window created successfully')
+
+    // Defer menu creation until after window is ready
+    process.nextTick(() => {
+      createApplicationMenu()
+      logger.info('App', 'Application menu created')
+    })
 
     // Set application ready state
     logger.info('App', 'Application startup completed successfully')

@@ -1,5 +1,16 @@
-import Anthropic from '@anthropic-ai/sdk'
 import { logger } from '../utils/logger'
+
+// Lazy load Anthropic SDK only when needed
+let anthropicClient: any = null
+const getAnthropicClient = async () => {
+  if (!anthropicClient) {
+    const Anthropic = await import('@anthropic-ai/sdk')
+    anthropicClient = new Anthropic.default({
+      apiKey: process.env.CLAUDE_API_KEY,
+    })
+  }
+  return anthropicClient
+}
 
 export interface ClaudeResponse {
   email: string
@@ -48,7 +59,8 @@ export class ClaudeApiError extends Error {
 }
 
 export class ClaudeService {
-  private client: Anthropic
+  private client: any = null
+  private apiKey: string
   private readonly MAX_REQUESTS_PER_MINUTE = 100
   private requestCount = 0
   private lastResetTime = Date.now()
@@ -70,14 +82,22 @@ export class ClaudeService {
       )
     }
 
-    this.client = new Anthropic({
-      apiKey: key,
-      defaultHeaders: {
-        'anthropic-beta': 'files-api-2025-04-14'
-      }
-    })
-    
-    logger.info('ClaudeService', 'Claude client initialized successfully')
+    this.apiKey = key
+    logger.info('ClaudeService', 'Claude service initialized (client will be loaded on demand)')
+  }
+
+  private async getClient() {
+    if (!this.client) {
+      const Anthropic = await import('@anthropic-ai/sdk')
+      this.client = new Anthropic.default({
+        apiKey: this.apiKey,
+        defaultHeaders: {
+          'anthropic-beta': 'files-api-2025-04-14'
+        }
+      })
+      logger.info('ClaudeService', 'Claude client loaded')
+    }
+    return this.client
   }
 
   private resetRateLimitIfNeeded(): void {
@@ -281,7 +301,8 @@ export class ClaudeService {
         logger.debug('ClaudeService', `Using system prompt: ${systemPrompt.length} characters`)
       }
 
-      const response = await this.client.messages.create(apiCall)
+      const client = await this.getClient()
+      const response = await client.messages.create(apiCall)
 
       const duration = Date.now() - startTime
       logger.info('ClaudeService', `Received response from Claude API in ${duration}ms`)
@@ -476,10 +497,11 @@ export class ClaudeService {
       const blob = new Blob([file], { type: mimeType })
       formData.append('file', blob, filename)
 
+      const client = await this.getClient()
       const response = await fetch('https://api.anthropic.com/v1/files', {
         method: 'POST',
         headers: {
-          'x-api-key': this.client.apiKey!,
+          'x-api-key': client.apiKey!,
           'anthropic-version': '2023-06-01',
           'anthropic-beta': 'files-api-2025-04-14'
         },
@@ -508,10 +530,11 @@ export class ClaudeService {
     logger.info('ClaudeService', `Deleting file: ${fileId}`)
 
     try {
+      const client = await this.getClient()
       const response = await fetch(`https://api.anthropic.com/v1/files/${fileId}`, {
         method: 'DELETE',
         headers: {
-          'x-api-key': this.client.apiKey!,
+          'x-api-key': client.apiKey!,
           'anthropic-version': '2023-06-01',
           'anthropic-beta': 'files-api-2025-04-14'
         }
