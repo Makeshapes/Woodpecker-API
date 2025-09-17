@@ -36,7 +36,8 @@
       "Read(//Users/codyiddings/.config/**)",
       "Bash(find:*)",
       "Read(//Users/codyiddings/**)",
-      "Bash(electron:*)"
+      "Bash(electron:*)",
+      "Bash(git push:*)"
     ]
   },
   "hooks": {

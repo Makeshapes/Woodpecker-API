@@ -117,12 +117,12 @@
       "target": [
         {
           "target": "dmg",
-          "identity": null,
           "arch": [
             "universal"
           ]
         }
       ],
+      "identity": null,
       "icon": "assets/icons/icon.icns",
       "category": "public.app-category.productivity",
       "minimumSystemVersion": "10.14.0",
