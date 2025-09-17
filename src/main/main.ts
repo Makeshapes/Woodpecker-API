@@ -57,9 +57,11 @@ if (process.platform === 'win32') {
   app.setAppUserModelId(app.getName())
 }
 
-// Enable remote debugging for Playwright MCP integration
-app.commandLine.appendSwitch('remote-debugging-port', '9222')
-logger.info('App', 'Remote debugging enabled on port 9222 for MCP integration')
+// Enable remote debugging for Playwright MCP integration (development only)
+if (process.env.NODE_ENV !== 'production') {
+  app.commandLine.appendSwitch('remote-debugging-port', '9222')
+  logger.info('App', 'Remote debugging enabled on port 9222 for MCP integration')
+}
 
 if (!app.requestSingleInstanceLock()) {
   app.quit()

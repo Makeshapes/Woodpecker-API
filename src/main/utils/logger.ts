@@ -44,6 +44,9 @@ class Logger {
     // Set log level based on environment
     if (process.env.NODE_ENV === 'development') {
       this.logLevel = LogLevel.DEBUG;
+    } else {
+      // Production should only log errors and warnings to improve performance
+      this.logLevel = LogLevel.WARN;
     }
   }
 
