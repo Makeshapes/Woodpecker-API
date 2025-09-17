@@ -254,11 +254,12 @@ export function ContentGeneration({
       // Final fallback: Try common field name variations
       const variations = {
         company: ['company_name', 'organization', 'company'],
-        contact: ['name', 'full_name', 'contact_name', 'first_name'],
+        first_name: ['first_name', 'fname', 'firstname'],
+        last_name: ['last_name', 'lname', 'lastname'],
         email: ['email_address', 'email'],
         title: ['job_title', 'position', 'title'],
         industry: ['industry', 'sector', 'vertical'],
-        linkedin: ['linkedin_url', 'linkedin_profile', 'linkedin'],
+        linkedin_url: ['linkedin_url', 'linkedin_profile', 'linkedin'],
         website: ['website', 'company_website', 'url', 'web_url'],
       }
 
@@ -283,8 +284,9 @@ export function ContentGeneration({
         '🔄 [ContentGeneration] Lead changed, loading content for:',
         lead.email || lead.id
       )
-      const leadId = btoa(String(lead.email || lead.id)).replace(/[/+=]/g, '')
-      const existingContent = await contentGenerationService.getLeadContent(leadId)
+      const dbLeadId = String(lead.id)
+      const existingContent =
+        await contentGenerationService.getLeadContent(dbLeadId)
 
       console.log(
         '🔄 [ContentGeneration] Found existing content:',
@@ -296,7 +298,10 @@ export function ContentGeneration({
         onContentUpdate?.(existingContent)
         // Update status to 'drafted' if content exists but lead status is still 'imported'
         if (lead.status === 'imported') {
-          console.log('🔄 [ContentGeneration] Updating status from imported to drafted for lead with existing content:', lead.id)
+          console.log(
+            '🔄 [ContentGeneration] Updating status from imported to drafted for lead with existing content:',
+            lead.id
+          )
           onStatusUpdate?.(lead.id, 'drafted')
         }
       }
@@ -751,25 +756,32 @@ Dan`
       const leadRecord = lead as Record<string, unknown>
       const leadData = {
         first_name:
-          (leadRecord.contact || getFieldValue('contact'))
-            ?.toString()
-            .split(' ')[0] || 'There',
+          leadRecord.first_name?.toString() ||
+          getFieldValue('first_name') ||
+          'There',
         last_name:
-          (leadRecord.contact || getFieldValue('contact'))
-            ?.toString()
-            .split(' ')
-            .slice(1)
-            .join(' ') || '',
+          leadRecord.last_name?.toString() ||
+          getFieldValue('last_name') ||
+          '',
         company:
           leadRecord.company?.toString() || getFieldValue('company') || '',
         title: leadRecord.title?.toString() || getFieldValue('title') || '',
         email: leadRecord.email?.toString() || getFieldValue('email') || '',
+        phone: leadRecord.phone?.toString() || getFieldValue('phone') || '',
+        website: leadRecord.website?.toString() || getFieldValue('website') || '',
+        linkedin_url:
+          leadRecord.linkedin_url?.toString() ||
+          getFieldValue('linkedin_url') ||
+          '',
+        address: leadRecord.address?.toString() || getFieldValue('address') || '',
+        city: leadRecord.city?.toString() || getFieldValue('city') || '',
+        state: leadRecord.state?.toString() || getFieldValue('state') || '',
+        country: leadRecord.country?.toString() || getFieldValue('country') || '',
         industry:
           leadRecord.industry?.toString() ||
           getFieldValue('industry') ||
           'Technology',
-        linkedin_url:
-          leadRecord.linkedin?.toString() || getFieldValue('linkedin') || '',
+        tags: leadRecord.tags?.toString() || getFieldValue('tags') || '',
         custom_prompt: fullPromptWithSystem, // Include the full prompt with system prompt for processing
         file_ids: fileIds, // Include file IDs for Files API
       }
@@ -794,7 +806,8 @@ Dan`
       const result = await contentGenerationService.generateForLead(
         leadData,
         'email-sequence',
-        selectedModel
+        selectedModel,
+        parseInt(String(lead.id))
       )
 
       // Debug: Log the raw result from Claude
@@ -828,7 +841,7 @@ Dan`
         onStatusUpdate?.(lead.id, 'drafted')
 
         // Save to localStorage for persistence
-        const leadId = btoa(String(lead.email || lead.id)).replace(/[/+=]/g, '')
+        const leadId = String(lead.id)
         console.log(
           '💾 Saving to localStorage with key:',
           `lead_content_${leadId}`
@@ -1752,11 +1765,8 @@ Dan`
                     }
 
                     // Clear localStorage using service
-                    const leadId = btoa(String(lead.email || lead.id)).replace(
-                      /[/+=]/g,
-                      ''
-                    )
-                    contentGenerationService.clearLeadContent(leadId)
+                    const dbLeadId = String(lead.id)
+                    contentGenerationService.clearLeadContent(dbLeadId)
 
                     // Reset prompt to empty
                     setCustomPrompt('')

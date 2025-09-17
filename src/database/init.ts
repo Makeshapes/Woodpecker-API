@@ -105,13 +105,13 @@ export function getDatabase(): Database.Database {
   if (!isDatabaseInitialized()) {
     return initializeDatabase();
   }
-  
+
   const dbPath = getDatabasePath();
   const db = new Database(dbPath);
-  
+
   // Enable foreign key constraints
   db.pragma('foreign_keys = ON');
-  
+
   return db;
 }
 

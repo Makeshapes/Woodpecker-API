@@ -2,7 +2,10 @@ import type { ClaudeResponse } from '../main/services/claudeService'
 import { TemplateService, templateService } from './templateService'
 import type { LeadData } from './templateService'
 import { FallbackDataService, fallbackDataService } from './fallbackDataService'
-import { TemplateBasedGenerationService, templateBasedGenerationService } from './templateBasedGenerationService'
+import {
+  TemplateBasedGenerationService,
+  templateBasedGenerationService,
+} from './templateBasedGenerationService'
 import { contentStorage } from '@/utils/contentStorage'
 
 export interface ContentGenerationRequest {
@@ -48,24 +51,46 @@ export class ContentGenerationService {
   async generateForLead(
     leadData: LeadData,
     templateName: string = 'email-sequence',
-    modelId?: string
+    modelId?: string,
+    numericLeadId?: number
   ): Promise<ContentGenerationResult> {
     const leadId = this.generateLeadId(leadData)
-    
-    console.log('🎯 [ContentGenerationService] Starting generation for lead:', leadId)
-    console.log('📊 [ContentGenerationService] Template:', templateName, 'Model:', modelId || 'default')
+
+    console.log(
+      '🎯 [ContentGenerationService] Starting generation for lead:',
+      leadId
+    )
+    console.log(
+      '📊 [ContentGenerationService] Template:',
+      templateName,
+      'Model:',
+      modelId || 'default'
+    )
     console.log('🔑 [ContentGenerationService] Using IPC bridge for Claude API')
-    console.log('🆕 [ContentGenerationService] Use Fallback mode:', this.useFallback)
-    console.log('🛠️ [ContentGenerationService] Debug env var:', import.meta.env.VITE_ENABLE_DEBUG)
-    console.log('🔒 [ContentGenerationService] Fallback will be used if API fails:', this.useFallback)
-    console.log('🎨 [ContentGenerationService] Current generation mode:', this.generationMode)
+    console.log(
+      '🆕 [ContentGenerationService] Use Fallback mode:',
+      this.useFallback
+    )
+    console.log(
+      '🛠️ [ContentGenerationService] Debug env var:',
+      import.meta.env.VITE_ENABLE_DEBUG
+    )
+    console.log(
+      '🔒 [ContentGenerationService] Fallback will be used if API fails:',
+      this.useFallback
+    )
+    console.log(
+      '🎨 [ContentGenerationService] Current generation mode:',
+      this.generationMode
+    )
     console.log('👤 [ContentGenerationService] Lead data:', {
       email: leadData.email,
       name: `${leadData.first_name} ${leadData.last_name}`,
       company: leadData.company,
       title: leadData.title,
       industry: leadData.industry,
-      hasCustomPrompt: !!(leadData as LeadData & { custom_prompt?: string }).custom_prompt
+      hasCustomPrompt: !!(leadData as LeadData & { custom_prompt?: string })
+        .custom_prompt,
     })
 
     try {
@@ -77,16 +102,23 @@ export class ContentGenerationService {
 
       // Handle different generation modes
       if (this.generationMode === 'templates') {
-        console.log('📋 [ContentGenerationService] Using template-based generation mode')
+        console.log(
+          '📋 [ContentGenerationService] Using template-based generation mode'
+        )
         // Simulate some processing time for realistic UX
         await new Promise((resolve) =>
           setTimeout(resolve, Math.random() * 1000 + 300)
         )
 
-        content = this.templateBasedService.generateTemplateBasedContent(leadData)
-        console.log('📝 [ContentGenerationService] Generated template-based content')
+        content =
+          this.templateBasedService.generateTemplateBasedContent(leadData)
+        console.log(
+          '📝 [ContentGenerationService] Generated template-based content'
+        )
       } else if (this.generationMode === 'fallback' || this.useFallback) {
-        console.log('🆕 [ContentGenerationService] Using fallback mode (useFallback = true)')
+        console.log(
+          '🆕 [ContentGenerationService] Using fallback mode (useFallback = true)'
+        )
         // Simulate API delay for realistic testing
         await new Promise((resolve) =>
           setTimeout(resolve, Math.random() * 2000 + 500)
@@ -97,40 +129,68 @@ export class ContentGenerationService {
       } else {
         try {
           // Generate prompt
-          console.log('📃 [ContentGenerationService] Generating prompt from template...')
+          console.log(
+            '📃 [ContentGenerationService] Generating prompt from template...'
+          )
           const prompt = this.templateService.generatePrompt(
             leadData,
             templateName
           )
-          console.log('📄 [ContentGenerationService] Prompt length:', prompt.length, 'characters')
-          console.log('📝 [ContentGenerationService] Prompt preview (first 500 chars):', prompt.substring(0, 500) + '...')
+          console.log(
+            '📄 [ContentGenerationService] Prompt length:',
+            prompt.length,
+            'characters'
+          )
+          console.log(
+            '📝 [ContentGenerationService] Prompt preview (first 500 chars):',
+            prompt.substring(0, 500) + '...'
+          )
 
           // Generate content using Claude via IPC
-          console.log('🚀 [ContentGenerationService] Calling Claude API via IPC bridge...')
+          console.log(
+            '🚀 [ContentGenerationService] Calling Claude API via IPC bridge...'
+          )
           console.log('⚙️ [ContentGenerationService] API Config:', {
             modelId: modelId || 'default',
-            maxRetries: 3
+            maxRetries: 3,
           })
-          
+
           // Extract system prompt from custom_prompt if it exists
           let systemPrompt: string | undefined
           let userPrompt = prompt
-          
-          if (leadData.custom_prompt && typeof leadData.custom_prompt === 'string') {
+
+          if (
+            leadData.custom_prompt &&
+            typeof leadData.custom_prompt === 'string'
+          ) {
             const customPromptStr = leadData.custom_prompt as string
             // Check if it contains the system prompt pattern
-            const systemPromptMatch = customPromptStr.match(/^(# Makeshapes Cold Email.*?)(\n\n(?:Tell me about|Here's|Please).*)/s)
+            const systemPromptMatch = customPromptStr.match(
+              /^(# Makeshapes Cold Email.*?)(\n\n(?:Tell me about|Here's|Please).*)/s
+            )
             if (systemPromptMatch) {
               systemPrompt = systemPromptMatch[1]
               userPrompt = systemPromptMatch[2].trim()
-              console.log('📋 [ContentGenerationService] Separated system prompt:', systemPrompt.length, 'chars')
-              console.log('👤 [ContentGenerationService] User prompt:', userPrompt.length, 'chars')
+              console.log(
+                '📋 [ContentGenerationService] Separated system prompt:',
+                systemPrompt.length,
+                'chars'
+              )
+              console.log(
+                '👤 [ContentGenerationService] User prompt:',
+                userPrompt.length,
+                'chars'
+              )
             }
           }
 
           // Extract file IDs from leadData
-          const fileIds = (leadData as unknown as { file_ids?: string[] }).file_ids || []
-          console.log('📎 [ContentGenerationService] File IDs for Claude API:', fileIds)
+          const fileIds =
+            (leadData as unknown as { file_ids?: string[] }).file_ids || []
+          console.log(
+            '📎 [ContentGenerationService] File IDs for Claude API:',
+            fileIds
+          )
 
           // Call Claude API via IPC bridge
           const response = await window.api.claude.generateContent({
@@ -139,7 +199,7 @@ export class ContentGenerationService {
             modelId,
             systemPrompt,
             fileIds,
-            maxRetries: 3
+            maxRetries: 3,
           })
 
           if (!response.success) {
@@ -147,51 +207,86 @@ export class ContentGenerationService {
           }
 
           content = response.data
-          console.log('✅ [ContentGenerationService] Claude API returned content successfully')
-          console.log('📦 [ContentGenerationService] Content keys:', Object.keys(content))
+          console.log(
+            '✅ [ContentGenerationService] Claude API returned content successfully'
+          )
+          console.log(
+            '📦 [ContentGenerationService] Content keys:',
+            Object.keys(content)
+          )
           console.log('📧 [ContentGenerationService] Generated snippets:', {
             snippet1Length: content.snippet1?.length || 0,
             snippet2Length: content.snippet2?.length || 0,
             snippet3Length: content.snippet3?.length || 0,
-            hasAllSnippets: !!(content.snippet1 && content.snippet2 && content.snippet3 && content.snippet4 && content.snippet5 && content.snippet6 && content.snippet7)
+            hasAllSnippets: !!(
+              content.snippet1 &&
+              content.snippet2 &&
+              content.snippet3 &&
+              content.snippet4 &&
+              content.snippet5 &&
+              content.snippet6 &&
+              content.snippet7
+            ),
           })
 
           // Validate generated content
-          console.log('🔍 [ContentGenerationService] Validating generated content...')
+          console.log(
+            '🔍 [ContentGenerationService] Validating generated content...'
+          )
           if (
             !this.templateService.validateGeneratedContent(
               content,
               templateName
             )
           ) {
-            console.error('❌ [ContentGenerationService] Content validation failed')
+            console.error(
+              '❌ [ContentGenerationService] Content validation failed'
+            )
             throw new Error(
               'Generated content does not meet validation criteria'
             )
           }
           console.log('✔️ [ContentGenerationService] Content validation passed')
         } catch (error) {
-          console.error('❌ [ContentGenerationService] Claude API failed:', error)
-          
+          console.error(
+            '❌ [ContentGenerationService] Claude API failed:',
+            error
+          )
+
           // Only fall back to mock data if explicitly in debug mode
           if (this.useFallback) {
-            console.warn('⚠️ [ContentGenerationService] Using fallback due to debug mode being enabled')
+            console.warn(
+              '⚠️ [ContentGenerationService] Using fallback due to debug mode being enabled'
+            )
             content = this.fallbackService.generateFallbackContent(leadData)
-            console.log('🆕 [ContentGenerationService] Using fallback content due to error')
+            console.log(
+              '🆕 [ContentGenerationService] Using fallback content due to error'
+            )
           } else {
             // In production mode, throw the error instead of silently falling back
-            console.error('🚫 [ContentGenerationService] Not falling back - throwing error to user')
+            console.error(
+              '🚫 [ContentGenerationService] Not falling back - throwing error to user'
+            )
             throw error
           }
         }
       }
 
       // Store in database via IPC
-      console.log('💾 [ContentGenerationService] Persisting content to database')
-      await this.persistContentToStorage(leadId, content)
-      
-      console.log('🎉 [ContentGenerationService] Successfully generated content for lead:', leadId)
-      console.log('📦 [ContentGenerationService] Returning content with', Object.keys(content).length, 'fields')
+      console.log(
+        '💾 [ContentGenerationService] Persisting content to database'
+      )
+      await this.persistContentToStorage(leadId, content, numericLeadId)
+
+      console.log(
+        '🎉 [ContentGenerationService] Successfully generated content for lead:',
+        leadId
+      )
+      console.log(
+        '📦 [ContentGenerationService] Returning content with',
+        Object.keys(content).length,
+        'fields'
+      )
 
       return {
         leadId,
@@ -202,8 +297,11 @@ export class ContentGenerationService {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error occurred'
-      
-      console.error('🔥 [ContentGenerationService] Generation failed:', errorMessage)
+
+      console.error(
+        '🔥 [ContentGenerationService] Generation failed:',
+        errorMessage
+      )
       console.error('💥 [ContentGenerationService] Full error:', error)
 
       return {
@@ -396,9 +494,17 @@ export class ContentGenerationService {
 
   private async persistContentToStorage(
     leadId: string,
-    content: ClaudeResponse
+    content: ClaudeResponse,
+    numericLeadId?: number
   ): Promise<void> {
-    const success = await contentStorage.persistContentToStorage(leadId, content)
+    const idForDb =
+      typeof numericLeadId === 'number' && Number.isFinite(numericLeadId)
+        ? String(numericLeadId)
+        : leadId
+    const success = await contentStorage.persistContentToStorage(
+      idForDb,
+      content
+    )
     if (!success) {
       console.error('Failed to persist content to database')
       throw new Error('Failed to persist content to database')
@@ -426,7 +532,7 @@ export class ContentGenerationService {
         return {
           requestCount: 0,
           remainingRequests: 100,
-          maxRequestsPerMinute: 100
+          maxRequestsPerMinute: 100,
         }
       }
     } catch (error) {
@@ -434,7 +540,7 @@ export class ContentGenerationService {
       return {
         requestCount: 0,
         remainingRequests: 100,
-        maxRequestsPerMinute: 100
+        maxRequestsPerMinute: 100,
       }
     }
   }
@@ -456,7 +562,9 @@ export class ContentGenerationService {
 
   // Generation mode management
   setGenerationMode(mode: GenerationMode): void {
-    console.log(`🔄 [ContentGenerationService] Switching generation mode from ${this.generationMode} to ${mode}`)
+    console.log(
+      `🔄 [ContentGenerationService] Switching generation mode from ${this.generationMode} to ${mode}`
+    )
     this.generationMode = mode
   }
 
@@ -477,7 +585,12 @@ export class ContentGenerationService {
   // Upload file to Claude via IPC
   async uploadFile(file: File): Promise<string> {
     try {
-      console.log('📁 [ContentGenerationService] Uploading file via IPC:', file.name, file.size, 'bytes')
+      console.log(
+        '📁 [ContentGenerationService] Uploading file via IPC:',
+        file.name,
+        file.size,
+        'bytes'
+      )
 
       // Convert File to ArrayBuffer
       const fileBuffer = await file.arrayBuffer()
@@ -485,14 +598,17 @@ export class ContentGenerationService {
       const response = await window.api.claude.uploadFile({
         fileBuffer,
         filename: file.name,
-        mimeType: file.type
+        mimeType: file.type,
       })
 
       if (!response.success) {
         throw new Error(response.error.message || 'File upload failed')
       }
 
-      console.log('✅ [ContentGenerationService] File uploaded successfully:', response.data.fileId)
+      console.log(
+        '✅ [ContentGenerationService] File uploaded successfully:',
+        response.data.fileId
+      )
       return response.data.fileId
     } catch (error) {
       console.error('❌ [ContentGenerationService] File upload error:', error)
@@ -503,7 +619,10 @@ export class ContentGenerationService {
   // Delete file from Claude via IPC
   async deleteFile(fileId: string): Promise<void> {
     try {
-      console.log('🗑️ [ContentGenerationService] Deleting file via IPC:', fileId)
+      console.log(
+        '🗑️ [ContentGenerationService] Deleting file via IPC:',
+        fileId
+      )
 
       const response = await window.api.claude.deleteFile(fileId)
 

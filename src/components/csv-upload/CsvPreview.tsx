@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ChevronLeft, ChevronRight, CheckCircle2, AlertCircle, ArrowRight } from 'lucide-react'
+import { getStandardFields, isStandardField } from '@/utils/fieldMapper'
 
 interface CsvData {
   data: Record<string, string>[]
@@ -38,18 +39,27 @@ export function CsvPreview({ csvData, columnMapping, onConfirm, onCancel }: CsvP
       original: header,
       mapped: columnMapping[header] || 'unmapped',
       isMapped: !!columnMapping[header],
-      isStandardField: !!columnMapping[header]
+      isWoodpeckerField: !!columnMapping[header]
     }))
   }, [headers, columnMapping])
   
-  const requiredFields = ['email', 'company', 'contact']
-  const mappedRequiredFields = requiredFields.filter(field => 
+  const requiredFields = ['email', 'company']
+  const nameFields = ['first_name', 'last_name']
+
+  const mappedRequiredFields = requiredFields.filter(field =>
     Object.values(columnMapping).includes(field)
   )
-  
-  const hasAllRequiredFields = requiredFields.every(field => 
+
+  // Check if we have name information (either first/last name or any name field)
+  const hasNameInfo = nameFields.some(field =>
     Object.values(columnMapping).includes(field)
+  ) || Object.keys(columnMapping).some(header =>
+    ['contact name', 'full name', 'name', 'contact'].includes(header.toLowerCase())
   )
+
+  const hasAllRequiredFields = requiredFields.every(field =>
+    Object.values(columnMapping).includes(field)
+  ) && hasNameInfo
 
   return (
     <Card>
@@ -80,14 +90,14 @@ export function CsvPreview({ csvData, columnMapping, onConfirm, onCancel }: CsvP
         <div className="space-y-2">
           <h4 className="text-sm font-medium">Column Mapping</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-xs">
-            {mappedHeaders.map(({ original, mapped, isStandardField }) => (
+            {mappedHeaders.map(({ original, mapped, isWoodpeckerField }) => (
               <div key={original} className="flex items-center gap-2 p-2 bg-muted/50 rounded">
                 <span className="font-mono truncate max-w-20" title={original}>
                   {original}
                 </span>
                 <ArrowRight className="w-3 h-3 text-muted-foreground" />
-                <span className={`font-medium ${isStandardField ? 'text-primary' : 'text-muted-foreground'}`}>
-                  {isStandardField ? mapped : 'additional information'}
+                <span className={`font-medium ${isWoodpeckerField ? 'text-primary' : 'text-muted-foreground'}`}>
+                  {isWoodpeckerField ? mapped.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'additional data'}
                 </span>
               </div>
             ))}
@@ -110,10 +120,17 @@ export function CsvPreview({ csvData, columnMapping, onConfirm, onCancel }: CsvP
                   className={isMapped ? "bg-green-100 text-green-800 border-green-200" : ""}
                 >
                   {isMapped ? <CheckCircle2 className="w-3 h-3 mr-1" data-testid="check-icon" /> : <AlertCircle className="w-3 h-3 mr-1" data-testid="alert-icon" />}
-                  {field}
+                  {field.charAt(0).toUpperCase() + field.slice(1)}
                 </Badge>
               )
             })}
+            <Badge
+              variant={hasNameInfo ? "default" : "destructive"}
+              className={hasNameInfo ? "bg-green-100 text-green-800 border-green-200" : ""}
+            >
+              {hasNameInfo ? <CheckCircle2 className="w-3 h-3 mr-1" data-testid="check-icon" /> : <AlertCircle className="w-3 h-3 mr-1" data-testid="alert-icon" />}
+              Name
+            </Badge>
           </div>
         </div>
 
@@ -139,7 +156,7 @@ export function CsvPreview({ csvData, columnMapping, onConfirm, onCancel }: CsvP
                         </div>
                         {columnMapping[header] && (
                           <Badge variant="secondary" className="text-xs px-1 py-0">
-                            {columnMapping[header]}
+                            {columnMapping[header].replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                           </Badge>
                         )}
                       </div>

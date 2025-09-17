@@ -50,11 +50,11 @@ export class TemplateBasedGenerationService {
 
 We've built a new approach to group learning that's not dependent on facilitators. Our main focus has been supporting dispersed orgs facing these key challenges:
 
-<div>
+<ul>
 <li>Delivering at scale</li>
 <li>Delivering consistently</li>
 <li>Delivering quickly</li>
-</div>
+</ul>
 
 Curious if these are challenges you are facing at {{COMPANY}}. If so, interested to talk?
 
@@ -153,14 +153,17 @@ All the best,
       leadData.city,
       leadData.state,
       leadData.country
-    );
+    )
 
-    console.log('🌍 [TemplateBasedService] Adding location and timezone data:', {
-      city: leadData.city,
-      state: leadData.state,
-      country: leadData.country,
-      detectedTimezone: detectedTimezone
-    });
+    console.log(
+      '🌍 [TemplateBasedService] Adding location and timezone data:',
+      {
+        city: leadData.city,
+        state: leadData.state,
+        country: leadData.country,
+        detectedTimezone: detectedTimezone,
+      }
+    )
 
     // Generate content for each step
     const content: GeneratedContent = {

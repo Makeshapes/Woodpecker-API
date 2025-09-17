@@ -40,7 +40,11 @@ export function htmlToPlainText(html: string): string {
     .replace(/<div>/gi, '\n')
     .replace(/<\/div>/gi, '')
     // Convert <br> tags to line breaks
-    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<br\s*\/?>(\s*)/gi, '\n')
+    // Lists → bullets and line breaks
+    .replace(/<li[^>]*>/gi, '• ')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<\/(ul|ol)>/gi, '\n')
     // Convert <p> tags to double line breaks for paragraph separation
     .replace(/<p>/gi, '\n\n')
     .replace(/<\/p>/gi, '')
@@ -67,18 +71,47 @@ export function htmlToPlainText(html: string): string {
 export function plainTextToHtml(text: string): string {
   if (!text) return ''
 
-  // Split text into lines and wrap each in <div> tags
+  // Split text into lines and convert bullets to <ul><li> blocks
   const lines = text.split('\n')
-  const htmlLines = lines.map((line) => {
-    // If line is empty, create empty div
-    if (line.trim() === '') {
-      return '<div><br></div>'
-    }
-    // Wrap non-empty lines in div tags
-    return `<div>${line.trim()}</div>`
-  })
+  const htmlParts: string[] = []
+  let inList = false
 
-  return htmlLines.join('')
+  const isBullet = (line: string) => /^(\s*[•\-*]\s+)/.test(line)
+
+  const openList = () => {
+    if (!inList) {
+      htmlParts.push('<ul>')
+      inList = true
+    }
+  }
+  const closeList = () => {
+    if (inList) {
+      htmlParts.push('</ul>')
+      inList = false
+    }
+  }
+
+  for (const raw of lines) {
+    const line = raw.trim()
+    if (line === '') {
+      closeList()
+      htmlParts.push('<div><br></div>')
+      continue
+    }
+
+    if (isBullet(line)) {
+      openList()
+      const item = line.replace(/^(\s*[•\-*]\s+)/, '')
+      htmlParts.push(`<li>${item}</li>`)
+      continue
+    }
+
+    closeList()
+    htmlParts.push(`<div>${line}</div>`)
+  }
+
+  closeList()
+  return htmlParts.join('')
 }
 
 /**

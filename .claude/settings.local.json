@@ -32,7 +32,11 @@
       "Bash(xargs kill:*)",
       "Read(//Users/codyiddings/Library/**)",
       "mcp__circuit-electron__click",
-      "mcp__circuit-electron__keyboard_press"
+      "mcp__circuit-electron__keyboard_press",
+      "Read(//Users/codyiddings/.config/**)",
+      "Bash(find:*)",
+      "Read(//Users/codyiddings/**)",
+      "Bash(electron:*)"
     ]
   },
   "hooks": {

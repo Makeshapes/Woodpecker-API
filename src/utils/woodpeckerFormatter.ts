@@ -56,10 +56,23 @@ export function formatProspectForWoodpecker(
   const country = (generatedContent?.country as string) || extractCountry(lead)
 
   // Detect timezone - try generated content first, then detect from location data
-  const timezone =
-    (generatedContent?.timezone as string) ||
-    extractTimezone(lead) ||
-    detectTimezone(city, state, country)
+  const generatedTimezone = generatedContent?.timezone as string
+  const extractedTimezone = extractTimezone(lead)
+  const detectedTimezone = detectTimezone(city, state, country)
+
+  console.log('🌍 WoodpeckerFormatter: Timezone detection:', {
+    generatedTimezone,
+    extractedTimezone,
+    detectedTimezone,
+    city,
+    state,
+    country
+  })
+
+  // Use location-based detection if generated content returns "UTC" (fallback)
+  const timezone = (generatedTimezone && generatedTimezone !== 'UTC') ?
+    generatedTimezone :
+    (extractedTimezone || detectedTimezone)
 
   if (firstName) prospect.first_name = firstName
   if (lastName) prospect.last_name = lastName

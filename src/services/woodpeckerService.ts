@@ -326,6 +326,27 @@ class WoodpeckerService {
       return progress;
     }
 
+    // Check if running in Electron - use IPC bridge
+    if (typeof window !== 'undefined' && window.api && this.apiKey === 'ELECTRON_IPC') {
+      console.log('🔗 WoodpeckerService.addProspectsToCampaign: Using IPC bridge to main process');
+      try {
+        const result = await window.api.woodpecker.addProspects({
+          prospects,
+          campaignId,
+          force: false
+        });
+
+        if (result.success) {
+          return result.data;
+        } else {
+          throw new Error(result.error || 'IPC call failed');
+        }
+      } catch (error) {
+        console.error('❌ WoodpeckerService.addProspectsToCampaign: IPC call failed:', error);
+        throw error;
+      }
+    }
+
     // Demo mode: simulate successful export
     if (!this.apiKey || this.apiKey.trim() === '') {
       console.warn('⚠️ WoodpeckerService.addProspectsToCampaign: Demo mode - simulating export');

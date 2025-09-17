@@ -26,6 +26,7 @@ import {
   validateWoodpeckerProspect,
 } from '@/utils/woodpeckerFormatter'
 import type { LeadData, ColumnMapping, LeadStatus } from '@/types/lead'
+import { getStandardFields } from '@/utils/fieldMapper'
 import { Trash2, Copy, Download } from 'lucide-react'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import type { ClaudeResponse } from '@/services/claudeService'
@@ -74,77 +75,30 @@ export function LeadDetail({
     snippet7: '',
   })
 
-  // Group fields by type using useMemo to prevent infinite re-renders
-  const { standardData, customData } = useMemo(() => {
-    console.log('🔍 [LeadDetail] Field categorization debug:', {
-      leadKeys: Object.keys(lead),
-      leadData: lead,
-      columnMapping: columnMapping,
-      hasColumnMapping: !!columnMapping,
-    })
+  // Extract Woodpecker standard fields and additional data
+  const { woodpeckerFields, additionalData } = useMemo(() => {
+    const standardFieldNames = getStandardFields()
+    const woodpecker: Record<string, string> = {}
+    const additional: Record<string, string> = {}
 
-    const contactInfoFields = [
-      'company',
-      'contact',
-      'email',
-      'title',
-      'phone',
-      'city',
-      'state',
-      'country',
-      'linkedin',
-      'industry',
-      'website',
-    ]
-    const standard: Record<string, string> = {}
-    const custom: Record<string, string> = {}
-
-    // Separate contact info and additional fields
     Object.entries(lead).forEach(([key, value]) => {
-      if (['id', 'status', 'selected'].includes(key)) return
+      if (['id', 'status', 'selected'].includes(key) || !value) return
 
-      const mappedField = columnMapping[key]
-
-      // Check if this is a direct standard field (already processed from DB)
-      const isDirectStandardField = contactInfoFields.includes(key)
-
-      console.log(`🔍 [LeadDetail] Processing field: ${key}`, {
-        originalValue: value,
-        mappedField: mappedField,
-        isDirectStandardField: isDirectStandardField,
-        isMappedToContactField: mappedField ? contactInfoFields.includes(mappedField) : false,
-      })
-
-      if (isDirectStandardField) {
-        // Direct standard field (company, email, title, etc.)
-        standard[key] = String(value)
-        console.log(`✅ [LeadDetail] Added to Contact Info (direct): ${key} = ${String(value)}`)
-      } else if (mappedField && contactInfoFields.includes(mappedField)) {
-        // CSV field mapped to standard field
-        standard[mappedField] = String(value)
-        console.log(`✅ [LeadDetail] Added to Contact Info (mapped): ${mappedField} = ${String(value)}`)
+      if (standardFieldNames.includes(key as any)) {
+        woodpecker[key] = String(value)
       } else {
-        // Additional information
-        custom[key] = String(value)
-        console.log(`📋 [LeadDetail] Added to Additional Info: ${key} = ${String(value)}`)
+        additional[key] = String(value)
       }
     })
 
-    console.log('🔍 [LeadDetail] Final categorization:', {
-      standardData: standard,
-      customData: custom,
-      standardDataKeys: Object.keys(standard),
-      customDataKeys: Object.keys(custom),
-    })
-
-    return { standardData: standard, customData: custom }
-  }, [lead, columnMapping])
+    return { woodpeckerFields: woodpecker, additionalData: additional }
+  }, [lead])
 
   // Load generated content when modal opens
   useEffect(() => {
     if (open && (lead.status === 'drafted' || lead.status === 'exported')) {
       const loadContent = () => {
-        const leadId = btoa(String(standardData.email || lead.id)).replace(
+        const leadId = btoa(String(woodpeckerFields.email || lead.id)).replace(
           /[/+=]/g,
           ''
         )
@@ -165,7 +119,7 @@ export function LeadDetail({
       const interval = setInterval(loadContent, 2000)
       return () => clearInterval(interval)
     }
-  }, [open, lead.status, lead.id, standardData.email])
+  }, [open, lead.status, lead.id, woodpeckerFields.email])
 
   // Convert generated content to plain text when available
   useEffect(() => {
@@ -182,7 +136,7 @@ export function LeadDetail({
       setGeneratedContent(htmlContent)
 
       // Store the updated content
-      const leadId = btoa(String(standardData.email || lead.id)).replace(
+      const leadId = btoa(String(woodpeckerFields.email || lead.id)).replace(
         /[/+=]/g,
         ''
       )
@@ -195,7 +149,7 @@ export function LeadDetail({
       onStatusUpdate?.(lead.id, 'approved')
       toast.success('Content approved and converted to HTML format')
     },
-    [lead.id, standardData.email, onStatusUpdate]
+    [lead.id, woodpeckerFields.email, onStatusUpdate]
   )
 
   const handleApprovalStatusChange = useCallback(() => {
@@ -204,22 +158,45 @@ export function LeadDetail({
     toast.success('Content approved')
   }, [lead.id, onStatusUpdate])
 
+  // Sync generated HTML content to local plaintext immediately when content is produced
+  const handleContentUpdate = useCallback(
+    (htmlContent: ClaudeResponse | null) => {
+      setGeneratedContent(htmlContent)
+      if (htmlContent) {
+        const plainText = convertFromHtmlContent(htmlContent)
+        setPlainTextContent(plainText)
+      } else {
+        setPlainTextContent({
+          snippet1: '',
+          snippet2: '',
+          snippet3: '',
+          snippet4: '',
+          snippet5: '',
+          snippet6: '',
+          snippet7: '',
+        })
+      }
+    },
+    []
+  )
+
   // Create the complete JSON object
   const createCompleteJson = () => {
-    const resolvedTitle =
-      standardData.title && standardData.title !== (customData.Title || '')
-        ? standardData.title
-        : ''
-
     const baseData = {
-      email: standardData.email || '',
-      first_name: standardData.contact?.split(' ')[0] || '',
-      last_name: standardData.contact?.split(' ').slice(1).join(' ') || '',
-      company: standardData.company || '',
-      title: resolvedTitle,
-      linkedin_url: standardData.linkedin || '',
-      tags: `#${standardData.department || 'Business'} #${standardData.company?.replace(/\s+/g, '')} #${(customData.Title || standardData.title || '').replace(/\s+/g, '')}`,
-      industry: customData.Industry || standardData.department || 'Technology',
+      email: woodpeckerFields.email || '',
+      first_name: woodpeckerFields.first_name || '',
+      last_name: woodpeckerFields.last_name || '',
+      company: woodpeckerFields.company || '',
+      title: woodpeckerFields.title || '',
+      phone: woodpeckerFields.phone || '',
+      website: woodpeckerFields.website || '',
+      linkedin_url: woodpeckerFields.linkedin_url || '',
+      address: woodpeckerFields.address || '',
+      city: woodpeckerFields.city || '',
+      state: woodpeckerFields.state || '',
+      country: woodpeckerFields.country || '',
+      industry: woodpeckerFields.industry || '',
+      tags: woodpeckerFields.tags || '',
     }
 
     if (generatedContent) {
@@ -284,21 +261,21 @@ export function LeadDetail({
         generatedContent: generatedContent,
       })
 
-      // Create a properly mapped lead object with standardData fields
+      // Create a properly mapped lead object with woodpecker fields
       const mappedLead: LeadData = {
         ...lead,
         // Override with mapped standard fields
-        email: standardData.email || lead.email,
-        company: standardData.company || '',
-        contact: standardData.contact || '',
-        title: standardData.title || '',
-        phone: standardData.phone || '',
-        city: standardData.city || '',
-        state: standardData.state || '',
-        country: standardData.country || '',
-        linkedin: standardData.linkedin || '',
-        industry: standardData.industry || '',
-        website: standardData.website || '',
+        email: woodpeckerFields.email || lead.email,
+        company: woodpeckerFields.company || '',
+        contact: `${woodpeckerFields.first_name || ''} ${woodpeckerFields.last_name || ''}`.trim() || '',
+        title: woodpeckerFields.title || '',
+        phone: woodpeckerFields.phone || '',
+        city: woodpeckerFields.city || '',
+        state: woodpeckerFields.state || '',
+        country: woodpeckerFields.country || '',
+        linkedin: woodpeckerFields.linkedin_url || '',
+        industry: woodpeckerFields.industry || '',
+        website: woodpeckerFields.website || '',
       }
 
       // Format the prospect with generated content using mapped data
@@ -391,20 +368,26 @@ export function LeadDetail({
             <div>
               <div className="flex items-center gap-2 justify-between">
                 <SheetTitle className="text-xl">
-                  {standardData.contact ||
-                    standardData.company ||
+                  {[woodpeckerFields.first_name, woodpeckerFields.last_name]
+                    .filter(Boolean)
+                    .join(' ') ||
+                    woodpeckerFields.company ||
                     'Lead Details'}
                 </SheetTitle>
               </div>
               <SheetDescription>
-                {standardData.title || ''} - {standardData.company} -{' '}
-                <Link
-                  className="size-4 text-blue-600 hover:text-blue-800"
-                  to={standardData.linkedin || ''}
-                  target="_blank"
-                >
-                  Linkedin
-                </Link>
+                {woodpeckerFields.title || ''} {woodpeckerFields.title && woodpeckerFields.company ? ' - ' : ''} {woodpeckerFields.company} {woodpeckerFields.linkedin_url && (
+                  <>
+                    {' - '}
+                    <Link
+                      className="text-blue-600 hover:text-blue-800 underline"
+                      to={woodpeckerFields.linkedin_url}
+                      target="_blank"
+                    >
+                      LinkedIn
+                    </Link>
+                  </>
+                )}
               </SheetDescription>
               <div className="flex items-center gap-2 mt-2">
                 <Badge className={getStatusColor(lead.status)}>
@@ -417,26 +400,30 @@ export function LeadDetail({
 
         <div className="space-y-6 px-8 pt-32">
           <ContentGeneration
-            lead={{ ...lead, ...standardData }}
+            lead={{ ...lead, ...woodpeckerFields }}
             columnMapping={columnMapping}
             onStatusUpdate={onStatusUpdate}
+            onContentUpdate={handleContentUpdate}
           />
 
-          {/* Standard Fields */}
+          {/* Lead Information */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Contact Information</CardTitle>
-              <CardDescription>Standard lead data fields</CardDescription>
+              <CardTitle className="text-lg">Lead Information</CardTitle>
+              <CardDescription>
+                All lead data from your import
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {Object.entries(standardData).map(([field, value]) => (
+                {/* Woodpecker Standard Fields */}
+                {Object.entries(woodpeckerFields).map(([field, value]) => (
                   <div key={field} className="space-y-1">
                     <label className="text-sm font-medium text-muted-foreground capitalize">
-                      {field.replace('_', ' ')}
+                      {field.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                     </label>
                     <div className="text-sm border rounded p-2 bg-muted/50">
-                      {field === 'linkedin' && value ? (
+                      {(field === 'linkedin_url' || field === 'website') && value ? (
                         <a
                           href={
                             value.startsWith('http')
@@ -455,36 +442,23 @@ export function LeadDetail({
                     </div>
                   </div>
                 ))}
+                {/* Additional Custom Fields */}
+                {Object.entries(additionalData).map(([field, value]) => (
+                  <div key={field} className="space-y-1">
+                    <label className="text-sm font-medium text-muted-foreground">
+                      {field}
+                      <Badge variant="outline" className="ml-2 text-xs">
+                        Custom
+                      </Badge>
+                    </label>
+                    <div className="text-sm border rounded p-2 bg-muted/50 max-h-24 overflow-y-auto">
+                      {value || '-'}
+                    </div>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
-          {/* Custom Fields */}
-          {Object.keys(customData).length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">
-                  Additional Information
-                </CardTitle>
-                <CardDescription>
-                  Custom fields from your CSV import
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {Object.entries(customData).map(([field, value]) => (
-                    <div key={field} className="space-y-1">
-                      <label className="text-sm font-medium text-muted-foreground">
-                        {field}
-                      </label>
-                      <div className="text-sm border rounded p-2 bg-muted/50 max-h-24 overflow-y-auto">
-                        {value || '-'}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
 
           {/* JSON Preview Section */}
         </div>
@@ -494,28 +468,40 @@ export function LeadDetail({
             lead.status === 'approved' ||
             lead.status === 'exported') && (
             <>
-              {plainTextContent.snippet1 && (
-                <ConversionButton
-                  plainTextContent={plainTextContent}
-                  leadData={{
-                    first_name: standardData.contact?.split(' ')[0] || 'There',
-                    last_name:
-                      standardData.contact?.split(' ').slice(1).join(' ') || '',
-                    company: standardData.company || '',
-                    title: standardData.title || '',
-                    email: standardData.email || '',
-                    industry:
-                      customData.Industry ||
-                      standardData.department ||
-                      'Technology',
-                    linkedin_url: standardData.linkedin || '',
-                    tags: `#${standardData.department || 'Business'} #${standardData.company?.replace(/\s+/g, '')} #${(customData.Title || standardData.title || '').replace(/\s+/g, '')}`,
-                  }}
-                  onConversionComplete={handleConversionComplete}
-                  onShowJson={() => {}}
-                  onStatusChange={handleApprovalStatusChange}
-                />
-              )}
+              {/* Determine if any plaintext content exists to enable Approve */}
+              {(() => {
+                const hasAnyPlainText = Boolean(
+                  plainTextContent.snippet1 ||
+                    plainTextContent.snippet2 ||
+                    plainTextContent.snippet3 ||
+                    plainTextContent.snippet4 ||
+                    plainTextContent.snippet5 ||
+                    plainTextContent.snippet6 ||
+                    plainTextContent.snippet7
+                )
+                return (
+                  <ConversionButton
+                    plainTextContent={plainTextContent}
+                    leadData={{
+                      first_name: woodpeckerFields.first_name || 'There',
+                      last_name: woodpeckerFields.last_name || '',
+                      company: woodpeckerFields.company || '',
+                      title: woodpeckerFields.title || '',
+                      email: woodpeckerFields.email || '',
+                      industry:
+                        additionalData.Industry ||
+                        woodpeckerFields.industry ||
+                        'Technology',
+                      linkedin_url: woodpeckerFields.linkedin_url || '',
+                      tags: `#${additionalData.Department || 'Business'} #${woodpeckerFields.company?.replace(/\s+/g, '')} #${(additionalData.Title || woodpeckerFields.title || '').replace(/\s+/g, '')}`,
+                    }}
+                    onConversionComplete={handleConversionComplete}
+                    onShowJson={() => {}}
+                    onStatusChange={handleApprovalStatusChange}
+                    disabled={!hasAnyPlainText}
+                  />
+                )
+              })()}
               {lead.status === 'approved' ? (
                 <Card>
                   <CardHeader>

@@ -9,6 +9,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Upload, FileText, AlertCircle, CheckCircle2, X } from 'lucide-react'
 import Papa from 'papaparse'
+import { mapCsvRowToLead, mapFieldName, getStandardFields } from '@/utils/fieldMapper'
 
 interface CsvData {
   data: Record<string, string>[]
@@ -41,45 +42,28 @@ interface PapaParseError {
   row?: number
 }
 
-const STANDARD_FIELDS = {
-  company: [
-    'company',
-    'company name',
-    'account',
-    'organization',
-    'company_name',
-    'company nickname',
-  ],
-  contact: [
-    'contact name',
-    'full name',
-    'name',
-    'contact_name',
-    'full_name',
-    'first name',
-    'last name',
-  ],
-  email: [
-    'email',
-    'email address',
-    'work email',
-    'email_address',
-    'work_email',
-    'email in lusha',
-    'email in apollo',
-  ],
-  title: ['title', 'job title', 'position', 'role', 'job_title'],
-  department: ['department', 'dept', 'division'],
-  phone: ['phone', 'phone number', 'telephone', 'mobile'],
-  city: ['city', 'location', 'locale'],
-  state: ['state', 'province', 'region'],
-  country: ['country', 'nation'],
-  website: ['website', 'url', 'domain', 'web'],
-  linkedin: ['linkedin', 'linkedin url', 'linkedin profile', 'social'],
-  industry: ['industry', 'sector', 'vertical'],
-  campaign: ['campaign', 'source', 'lead source'],
-  status: ['status', 'send status', 'lead status'],
-  tags: ['tag', 'tags', 'labels', 'categories'],
+// Required fields for validation
+const REQUIRED_FIELDS = ['email', 'company']
+
+// Get mapping display names for UI
+function getFieldDisplayName(fieldName: string): string {
+  const displayNames: Record<string, string> = {
+    'first_name': 'First Name',
+    'last_name': 'Last Name',
+    'company': 'Company',
+    'email': 'Email',
+    'title': 'Title',
+    'phone': 'Phone',
+    'website': 'Website',
+    'linkedin_url': 'LinkedIn URL',
+    'address': 'Address',
+    'city': 'City',
+    'state': 'State',
+    'country': 'Country',
+    'industry': 'Industry',
+    'tags': 'Tags'
+  }
+  return displayNames[fieldName] || fieldName
 }
 
 export function CsvUpload({ onDataLoaded, maxRows = 1000 }: CsvUploadProps) {
@@ -93,43 +77,17 @@ export function CsvUpload({ onDataLoaded, maxRows = 1000 }: CsvUploadProps) {
 
   const detectColumnMapping = (headers: string[]): ColumnMapping => {
     const mapping: ColumnMapping = {}
-    const duplicateColumns: string[] = []
-    const columnCounts: Record<string, number> = {}
+    const usedFields = new Set<string>()
 
     console.log('Detecting columns from headers:', headers)
 
-    // Check for duplicate column names
     headers.forEach((header) => {
-      const cleanHeader = header.trim()
-      columnCounts[cleanHeader] = (columnCounts[cleanHeader] || 0) + 1
-      if (columnCounts[cleanHeader] > 1) {
-        duplicateColumns.push(cleanHeader)
-      }
-    })
+      const mappedField = mapFieldName(header)
 
-    headers.forEach((header, index) => {
-      const cleanHeader = header.trim()
-      const normalizedHeader = cleanHeader.toLowerCase()
-
-      // Handle duplicate columns by adding index
-      const finalHeader =
-        columnCounts[cleanHeader] > 1 ? `${cleanHeader}_${index}` : cleanHeader
-
-      console.log(
-        `Checking header: "${cleanHeader}" -> normalized: "${normalizedHeader}"`
-      )
-
-      for (const [standardField, variations] of Object.entries(
-        STANDARD_FIELDS
-      )) {
-        if (variations.includes(normalizedHeader)) {
-          // Only map the first occurrence of duplicates to standard fields
-          if (!Object.values(mapping).includes(standardField)) {
-            mapping[finalHeader] = standardField
-            console.log(`Mapped "${finalHeader}" -> "${standardField}"`)
-          }
-          break
-        }
+      if (mappedField && !usedFields.has(mappedField)) {
+        mapping[header] = mappedField
+        usedFields.add(mappedField)
+        console.log(`Mapped "${header}" -> "${mappedField}"`)
       }
     })
 
@@ -142,37 +100,45 @@ export function CsvUpload({ onDataLoaded, maxRows = 1000 }: CsvUploadProps) {
     mapping: ColumnMapping
   ): string[] => {
     const errors: string[] = []
-    const requiredFields = ['email', 'company', 'contact']
 
     // Check if required fields are mapped
     const mappedFields = Object.values(mapping)
-    requiredFields.forEach((field) => {
+    REQUIRED_FIELDS.forEach((field) => {
       if (!mappedFields.includes(field)) {
-        errors.push(`Required field "${field}" not found in CSV headers`)
+        errors.push(`Required field "${getFieldDisplayName(field)}" not found in CSV headers`)
       }
     })
 
-    // Validate data rows
-    data.forEach((row, index) => {
+    // Check if we have either first_name/last_name or a name field that can be parsed
+    const hasName = mappedFields.includes('first_name') ||
+                   mappedFields.includes('last_name') ||
+                   Object.keys(mapping).some(header =>
+                     ['contact name', 'full name', 'name', 'contact'].includes(header.toLowerCase())
+                   )
+
+    if (!hasName) {
+      errors.push('Name field not found. Please include First Name, Last Name, or Full Name column')
+    }
+
+    // Validate data rows (sample first 100 for performance)
+    const sampleData = data.slice(0, 100)
+    sampleData.forEach((row, index) => {
       // Email validation
-      if (
-        mapping.email &&
-        row[Object.keys(mapping).find((k) => mapping[k] === 'email') || '']
-      ) {
-        const email =
-          row[Object.keys(mapping).find((k) => mapping[k] === 'email') || '']
+      const emailHeader = Object.keys(mapping).find((k) => mapping[k] === 'email')
+      if (emailHeader && row[emailHeader]) {
+        const email = row[emailHeader]
         if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
           errors.push(`Invalid email format in row ${index + 1}: ${email}`)
         }
       }
 
       // Required field validation
-      requiredFields.forEach((field) => {
+      REQUIRED_FIELDS.forEach((field) => {
         const originalHeader = Object.keys(mapping).find(
           (k) => mapping[k] === field
         )
         if (originalHeader && !row[originalHeader]?.trim()) {
-          errors.push(`Missing required field "${field}" in row ${index + 1}`)
+          errors.push(`Missing required field "${getFieldDisplayName(field)}" in row ${index + 1}`)
         }
       })
     })
@@ -258,6 +224,11 @@ export function CsvUpload({ onDataLoaded, maxRows = 1000 }: CsvUploadProps) {
 
       const mapping = detectColumnMapping(processedHeaders)
 
+      // Log mapping results for debugging
+      console.log('Column mapping results:')
+      console.log('Standard fields found:', Object.values(mapping))
+      console.log('Unmapped headers:', processedHeaders.filter(h => !mapping[h]))
+
       // Only validate first batch for performance
       const validationSample = processedData.slice(0, Math.min(100, maxRows))
       const validationErrors = validateData(validationSample, mapping)
@@ -292,6 +263,14 @@ export function CsvUpload({ onDataLoaded, maxRows = 1000 }: CsvUploadProps) {
       if (onDataLoaded) {
         onDataLoaded(csvData, mapping, fileName)
       }
+
+      console.log('CSV processing complete:', {
+        totalRows: csvData.rowCount,
+        processedRows: csvData.data.length,
+        mappedFields: Object.keys(mapping).length,
+        standardFields: Object.values(mapping).length,
+        errors: allErrors.length
+      })
 
       setTimeout(() => setIsUploading(false), 300) // Small delay to show 100%
     },

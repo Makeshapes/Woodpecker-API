@@ -156,8 +156,9 @@ export class WoodpeckerService {
     await this.checkRateLimit()
 
     const url = `${this.baseUrl}${endpoint}`
-    logger.debug('WoodpeckerService', `Making API request to: ${url}`, {
-      method: options.method || 'GET',
+    logger.info('WoodpeckerService', `Making API request: ${options.method || 'GET'} ${url}`, {
+      hasApiKey: !!this.apiKey && this.apiKey !== 'replace',
+      apiKeyLength: this.apiKey?.length || 0,
       endpoint: endpoint
     })
 
@@ -371,6 +372,30 @@ export class WoodpeckerService {
 
         try {
           logger.debug('WoodpeckerService', `Sending batch ${batches.indexOf(batch) + 1}/${batches.length} (${batch.length} prospects)`)
+
+          // Log detailed prospect data being sent to Woodpecker
+          batch.forEach((prospect, index) => {
+            logger.info('WoodpeckerService', `🔍 Prospect ${index + 1} data being sent to Woodpecker:`, {
+              email: prospect.email,
+              first_name: prospect.first_name,
+              last_name: prospect.last_name,
+              company: prospect.company,
+              title: prospect.title,
+              linkedin_url: prospect.linkedin_url,
+              city: prospect.city,
+              state: prospect.state,
+              country: prospect.country,
+              time_zone: prospect.time_zone,
+              hasTimeZone: !!prospect.time_zone,
+              timeZoneValue: prospect.time_zone,
+              snippet1: prospect.snippet1?.substring(0, 50) + '...',
+              snippet2: prospect.snippet2?.substring(0, 50) + '...',
+              allProspectKeys: Object.keys(prospect),
+              fullProspectData: prospect
+            })
+          })
+
+          logger.info('WoodpeckerService', `📤 Full request payload to Woodpecker:`, JSON.stringify(request, null, 2))
 
           const response = await this.makeRequest<WoodpeckerApiResponse>(
             '/add_prospects_campaign',

@@ -13,12 +13,14 @@ function convertClaudeResponseToRecord(
     touchpoint_number: touchpoint,
     content_type: 'email',
     content: JSON.stringify(content),
-    status: 'draft'
+    status: 'draft',
   }
 }
 
 // Helper function to convert GeneratedContentRecord to ClaudeResponse
-function convertRecordToClaudeResponse(record: GeneratedContentRecord): ClaudeResponse {
+function convertRecordToClaudeResponse(
+  record: GeneratedContentRecord
+): ClaudeResponse {
   try {
     return JSON.parse(record.content) as ClaudeResponse
   } catch (error) {
@@ -40,7 +42,11 @@ export const contentStorage = {
       }
 
       // Ensure response.data exists and is an array before accessing [0]
-      if (!response.data || !Array.isArray(response.data) || response.data.length === 0) {
+      if (
+        !response.data ||
+        !Array.isArray(response.data) ||
+        response.data.length === 0
+      ) {
         return null
       }
 
@@ -62,7 +68,11 @@ export const contentStorage = {
         return false
       }
 
-      return response.data && Array.isArray(response.data) && response.data.length > 0
+      return (
+        response.data &&
+        Array.isArray(response.data) &&
+        response.data.length > 0
+      )
     } catch (error) {
       console.error('Error checking lead content:', error)
       return false
@@ -76,19 +86,27 @@ export const contentStorage = {
     touchpoint: number = 1
   ): Promise<boolean> {
     try {
+      const numericId = parseInt(leadId)
+      if (!Number.isFinite(numericId)) {
+        console.error(
+          'Error persisting content: invalid leadId, expected numeric database id, received:',
+          leadId
+        )
+        return false
+      }
       const contentRecord = convertClaudeResponseToRecord(
-        parseInt(leadId),
+        numericId,
         content,
         touchpoint
       )
-      
+
       const response = await window.api.content.create(contentRecord)
-      
+
       if (isApiError(response)) {
         console.error('Error persisting content:', response.error)
         return false
       }
-      
+
       return true
     } catch (error) {
       console.error('Error persisting content:', error)
@@ -107,23 +125,27 @@ export const contentStorage = {
       }
 
       // Ensure response.data exists and is an array before processing
-      if (!response.data || !Array.isArray(response.data) || response.data.length === 0) {
+      if (
+        !response.data ||
+        !Array.isArray(response.data) ||
+        response.data.length === 0
+      ) {
         return true // No content to delete, consider this successful
       }
 
       // Delete all content records for this lead
-      const deletePromises = response.data.map(record =>
+      const deletePromises = response.data.map((record) =>
         window.api.content.delete(record.id)
       )
-      
+
       const deleteResponses = await Promise.all(deletePromises)
-      const hasErrors = deleteResponses.some(response => isApiError(response))
-      
+      const hasErrors = deleteResponses.some((response) => isApiError(response))
+
       if (hasErrors) {
         console.error('Some content deletions failed')
         return false
       }
-      
+
       return true
     } catch (error) {
       console.error('Error clearing lead content:', error)
@@ -136,7 +158,9 @@ export const contentStorage = {
     try {
       // This would require a new API method to get all content
       // For now, we'll implement a basic version
-      console.warn('clearAllContent not fully implemented - would need API method to get all content')
+      console.warn(
+        'clearAllContent not fully implemented - would need API method to get all content'
+      )
       return true
     } catch (error) {
       console.error('Error clearing all content:', error)
@@ -145,15 +169,17 @@ export const contentStorage = {
   },
 
   // Get content by touchpoint
-  async getContentByTouchpoint(touchpoint: number): Promise<GeneratedContentRecord[]> {
+  async getContentByTouchpoint(
+    touchpoint: number
+  ): Promise<GeneratedContentRecord[]> {
     try {
       const response = await window.api.content.getByTouchpoint(touchpoint)
-      
+
       if (isApiError(response)) {
         console.error('Error getting content by touchpoint:', response.error)
         return []
       }
-      
+
       return response.data
     } catch (error) {
       console.error('Error getting content by touchpoint:', error)
@@ -168,16 +194,16 @@ export const contentStorage = {
   ): Promise<boolean> {
     try {
       const response = await window.api.content.update(contentId, { status })
-      
+
       if (isApiError(response)) {
         console.error('Error updating content status:', response.error)
         return false
       }
-      
+
       return true
     } catch (error) {
       console.error('Error updating content status:', error)
       return false
     }
-  }
+  },
 }

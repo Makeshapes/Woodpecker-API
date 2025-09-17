@@ -1,6 +1,7 @@
 import type { LeadData, ColumnMapping } from '@/types/lead'
 import type { ApiResult, LeadRecord, BulkLeadData } from '@/types/api'
 import { isApiSuccess, isApiError } from '@/types/api'
+import { mapCsvRowToLead } from '@/utils/fieldMapper'
 
 // Legacy interface for backward compatibility
 export interface LeadsStorage {
@@ -16,13 +17,49 @@ function convertLeadRecordToLeadData(record: LeadRecord): LeadData {
     ? JSON.parse(record.additional_fields)
     : {}
 
+  // Build the full name from first_name and last_name
+  const fullName = [record.first_name, record.last_name]
+    .filter(Boolean)
+    .join(' ') || undefined
+
   return {
     id: record.id?.toString() || '',
-    status: mapDbStatusToLeadStatus(record.status || 'pending'),
+    status: mapDbStatusToLeadStatus(record.status || 'imported'),
+    // Core fields
     company: record.company || undefined,
-    contact_name: record.contact_name || undefined,
     email: record.email || undefined,
     title: record.title || undefined,
+    // Name fields - provide both formats for compatibility
+    contact_name: fullName,
+    first_name: record.first_name || undefined,
+    last_name: record.last_name || undefined,
+    // Additional Woodpecker fields
+    phone: record.phone || undefined,
+    website: record.website || undefined,
+    linkedin_url: record.linkedin_url || undefined,
+    address: record.address || undefined,
+    city: record.city || undefined,
+    state: record.state || undefined,
+    country: record.country || undefined,
+    industry: record.industry || undefined,
+    tags: record.tags || undefined,
+    // Snippets
+    snippet1: record.snippet1 || undefined,
+    snippet2: record.snippet2 || undefined,
+    snippet3: record.snippet3 || undefined,
+    snippet4: record.snippet4 || undefined,
+    snippet5: record.snippet5 || undefined,
+    snippet6: record.snippet6 || undefined,
+    snippet7: record.snippet7 || undefined,
+    snippet8: record.snippet8 || undefined,
+    snippet9: record.snippet9 || undefined,
+    snippet10: record.snippet10 || undefined,
+    snippet11: record.snippet11 || undefined,
+    snippet12: record.snippet12 || undefined,
+    snippet13: record.snippet13 || undefined,
+    snippet14: record.snippet14 || undefined,
+    snippet15: record.snippet15 || undefined,
+    // Any remaining custom fields
     ...additionalFields,
     selected: false
   }
@@ -38,23 +75,11 @@ function mapDbStatusToLeadStatus(dbStatus: LeadRecord['status']): LeadData['stat
 function convertLeadDataToRecord(lead: LeadData, importId?: number): Omit<LeadRecord, 'id' | 'import_id' | 'created_at'> {
   const { id, status, selected, ...data } = lead
 
-  // Map common fields if they exist
-  const company = data.company as string || data.Company as string || undefined
-  const contact_name = data.contact_name as string || data['Contact Name'] as string || data.name as string || data.Name as string || undefined
-  const email = data.email as string || data.Email as string || undefined
-  const title = data.title as string || data.Title as string || data.position as string || data.Position as string || undefined
-
-  // Store any additional fields as JSON
-  const { company: _company, Company: _Company, contact_name: _contact_name, 'Contact Name': _contactName,
-          name: _name, Name: _Name, email: _email, Email: _Email, title: _title, Title: _Title,
-          position: _position, Position: _Position, ...additionalFields } = data
+  // Use the field mapper to convert the lead data to the proper schema
+  const mappedLead = mapCsvRowToLead(data)
 
   return {
-    company,
-    contact_name,
-    email,
-    title,
-    additional_fields: Object.keys(additionalFields).length > 0 ? JSON.stringify(additionalFields) : undefined,
+    ...mappedLead,
     status: mapLeadStatus(status || 'imported'),
     woodpecker_campaign_id: undefined,
     export_date: undefined
