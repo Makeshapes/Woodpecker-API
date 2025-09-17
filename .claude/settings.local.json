@@ -38,7 +38,8 @@
       "Read(//Users/codyiddings/**)",
       "Bash(electron:*)",
       "Bash(git push:*)",
-      "Bash(zip:*)"
+      "Bash(zip:*)",
+      "Bash(xargs sed:*)"
     ]
   },
   "hooks": {

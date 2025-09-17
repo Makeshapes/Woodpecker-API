@@ -20,27 +20,17 @@ export function setupLeadsHandlers(): void {
   // Bulk create leads
   ipcMain.handle('ipc:leads:bulkCreate', async (_, bulkData: BulkLeadData) => {
     try {
-      console.log('IPC bulkCreate received:', JSON.stringify(bulkData, null, 2));
-      console.log('bulkData type:', typeof bulkData);
-      console.log('bulkData.leads type:', typeof bulkData?.leads);
-      console.log('bulkData.leads isArray:', Array.isArray(bulkData?.leads));
-
       validateInput(bulkData, ['import_id']);
       if (!Array.isArray(bulkData.leads)) {
-        console.log('ERROR: Leads property is not an array');
         throw new Error('Leads property must be an array');
       }
       if (bulkData.leads.length === 0) {
-        console.log('Empty leads array, returning empty result');
         // Return empty result for empty array instead of throwing error
         return { success: true, data: { created: [], skipped: 0 } };
       }
-      console.log('Calling LeadsDAL.bulkCreate with', bulkData.leads.length, 'leads');
       const result = LeadsDAL.bulkCreate(bulkData);
-      console.log('LeadsDAL.bulkCreate result:', result);
       return { success: true, data: result };
     } catch (error) {
-      console.log('IPC bulkCreate error:', error);
       return handleIpcError(error, 'leads:bulkCreate');
     }
   });
@@ -107,5 +97,4 @@ export function setupLeadsHandlers(): void {
     }
   });
 
-  console.log('Leads IPC handlers setup complete');
 }
