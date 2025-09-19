@@ -71,17 +71,19 @@ export class ClaudeService {
   private lastResetTime = Date.now()
 
   constructor(apiKey?: string) {
-    const key = apiKey || process.env.CLAUDE_API_KEY
-    
+    // Try parameter first, then settings service, then environment
+    const key = apiKey || settingsService.getClaudeApiKey() || process.env.CLAUDE_API_KEY
+
     logger.info('ClaudeService', 'Initializing Claude service...')
     logger.debug('ClaudeService', `API key provided via param: ${!!apiKey}`)
+    logger.debug('ClaudeService', `API key from settings: ${!!settingsService.getClaudeApiKey()}`)
     logger.debug('ClaudeService', `API key from env: ${!!process.env.CLAUDE_API_KEY}`)
     logger.debug('ClaudeService', `Final key available: ${!!key && key !== 'replace'}`)
-    
+
     if (!key || key === 'replace') {
       logger.error('ClaudeService', 'No valid API key found!')
       throw new ClaudeApiError(
-        'Claude API key not configured. Please set CLAUDE_API_KEY in your environment.',
+        'Claude API key not configured. Please add your API key in Settings.',
         'auth',
         false
       )
