@@ -39,7 +39,8 @@
       "Bash(electron:*)",
       "Bash(git push:*)",
       "Bash(zip:*)",
-      "Bash(xargs sed:*)"
+      "Bash(xargs sed:*)",
+      "Bash(timeout:*)"
     ]
   },
   "hooks": {
