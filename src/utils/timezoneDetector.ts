@@ -298,32 +298,41 @@ export function detectTimezone(
   const normalizedState = state?.trim();
   const normalizedCountry = country?.trim();
 
-  // Add more San Francisco variations
+  // Strategy 1: Try exact city match first (most specific)
   if (normalizedCity) {
+    // Special handling for San Francisco variations
     const cityLower = normalizedCity.toLowerCase();
     if (cityLower === 'san francisco' || cityLower === 'sf' || cityLower.includes('san fran')) {
       console.log(`🏙️ TimezoneDetector: Found San Francisco -> America/Los_Angeles`);
       return 'America/Los_Angeles';
     }
-  }
 
-  // Try city first (most specific)
-  if (normalizedCity) {
+    // Try exact city match
     const cityTimezone = CITY_TIMEZONE_MAP[normalizedCity];
     if (cityTimezone) {
       console.log(`🏙️ TimezoneDetector: Found timezone by city: ${normalizedCity} -> ${cityTimezone}`);
       return cityTimezone;
     }
+
+    // Strategy 2: Try fuzzy city matching (partial matches)
+    const cityMatches = Object.keys(CITY_TIMEZONE_MAP).filter(key =>
+      key.toLowerCase().includes(cityLower) || cityLower.includes(key.toLowerCase())
+    );
+    if (cityMatches.length > 0) {
+      const matchedTimezone = CITY_TIMEZONE_MAP[cityMatches[0]];
+      console.log(`🔍 TimezoneDetector: Found fuzzy city match: ${normalizedCity} -> ${cityMatches[0]} -> ${matchedTimezone}`);
+      return matchedTimezone;
+    }
   }
 
-  // Try US state mapping if country is US
-  console.log('🇺🇸 TimezoneDetector: Checking US state mapping...', {
-    state: normalizedState,
-    country: normalizedCountry,
-    isUS: normalizedCountry === 'US' || normalizedCountry === 'USA' || normalizedCountry === 'United States'
-  });
+  // Strategy 3: Try US state mapping if country is US or missing
+  const isUSCountry = !normalizedCountry ||
+    normalizedCountry === 'US' ||
+    normalizedCountry === 'USA' ||
+    normalizedCountry === 'United States' ||
+    normalizedCountry?.toLowerCase() === 'united states';
 
-  if (normalizedState && (normalizedCountry === 'US' || normalizedCountry === 'USA' || normalizedCountry === 'United States' || normalizedCountry?.toLowerCase() === 'united states')) {
+  if (normalizedState && isUSCountry) {
     const stateTimezone = US_STATE_TIMEZONE_MAP[normalizedState];
     if (stateTimezone) {
       console.log(`🇺🇸 TimezoneDetector: Found timezone by US state: ${normalizedState} -> ${stateTimezone}`);
@@ -331,17 +340,73 @@ export function detectTimezone(
     }
   }
 
-  // Try country mapping
+  // Strategy 4: Try state as city (sometimes state field contains city name)
+  if (normalizedState) {
+    const stateAsCity = CITY_TIMEZONE_MAP[normalizedState];
+    if (stateAsCity) {
+      console.log(`🏙️ TimezoneDetector: Found timezone using state as city: ${normalizedState} -> ${stateAsCity}`);
+      return stateAsCity;
+    }
+
+    // Strategy 4b: Try fuzzy city matching for state field
+    const stateLower = normalizedState.toLowerCase();
+    const cityMatches = Object.keys(CITY_TIMEZONE_MAP).filter(key =>
+      key.toLowerCase().includes(stateLower) || stateLower.includes(key.toLowerCase())
+    );
+    if (cityMatches.length > 0) {
+      const matchedTimezone = CITY_TIMEZONE_MAP[cityMatches[0]];
+      console.log(`🔍 TimezoneDetector: Found fuzzy city match in state field: ${normalizedState} -> ${cityMatches[0]} -> ${matchedTimezone}`);
+      return matchedTimezone;
+    }
+
+    // Strategy 4c: Try fuzzy state matching (only if we're assuming US)
+    if (isUSCountry) {
+      const stateMatches = Object.keys(US_STATE_TIMEZONE_MAP).filter(key =>
+        key.toLowerCase().includes(stateLower) || stateLower.includes(key.toLowerCase())
+      );
+      if (stateMatches.length > 0) {
+        const matchedTimezone = US_STATE_TIMEZONE_MAP[stateMatches[0]];
+        console.log(`🔍 TimezoneDetector: Found fuzzy state match: ${normalizedState} -> ${stateMatches[0]} -> ${matchedTimezone}`);
+        return matchedTimezone;
+      }
+    }
+  }
+
+  // Strategy 5: Try country mapping
   if (normalizedCountry) {
     const countryTimezone = COUNTRY_TIMEZONE_MAP[normalizedCountry];
     if (countryTimezone) {
       console.log(`🌏 TimezoneDetector: Found timezone by country: ${normalizedCountry} -> ${countryTimezone}`);
       return countryTimezone;
     }
+
+    // Strategy 6: Try fuzzy country matching
+    const countryLower = normalizedCountry.toLowerCase();
+    const countryMatches = Object.keys(COUNTRY_TIMEZONE_MAP).filter(key =>
+      key.toLowerCase().includes(countryLower) || countryLower.includes(key.toLowerCase())
+    );
+    if (countryMatches.length > 0) {
+      const matchedTimezone = COUNTRY_TIMEZONE_MAP[countryMatches[0]];
+      console.log(`🔍 TimezoneDetector: Found fuzzy country match: ${normalizedCountry} -> ${countryMatches[0]} -> ${matchedTimezone}`);
+      return matchedTimezone;
+    }
   }
 
-  console.log('❓ TimezoneDetector: Could not detect timezone, using default UTC');
-  return 'UTC'; // Default fallback
+  // Strategy 7: Intelligent defaults based on any available data
+  if (!normalizedCity && !normalizedState && !normalizedCountry) {
+    console.log('🌍 TimezoneDetector: No location data provided, using UTC');
+    return 'UTC';
+  }
+
+  // Strategy 8: Regional fallbacks based on partial information
+  if (normalizedCity || normalizedState) {
+    // If we have city/state but no country, assume US (most common case)
+    console.log('🇺🇸 TimezoneDetector: Assuming US for city/state without country, using Eastern Time');
+    return 'America/New_York'; // Default to Eastern Time for US
+  }
+
+  console.log('❓ TimezoneDetector: Could not detect timezone with any strategy, using UTC');
+  return 'UTC'; // Final fallback
 }
 
 /**
