@@ -1,4 +1,5 @@
 import { logger } from '../utils/logger'
+import { settingsService } from './settingsService'
 
 // Interfaces for Woodpecker API
 export interface WoodpeckerCampaign {
@@ -98,11 +99,11 @@ export class WoodpeckerService {
   private lastResetTime = Date.now()
 
   constructor(apiKey?: string) {
-    const key = apiKey || process.env.WOODPECKER_API_KEY
+    const key = apiKey || settingsService.getWoodpeckerApiKey()
 
     logger.info('WoodpeckerService', 'Initializing Woodpecker service...')
     logger.debug('WoodpeckerService', `API key provided via param: ${!!apiKey}`)
-    logger.debug('WoodpeckerService', `API key from env: ${!!process.env.WOODPECKER_API_KEY}`)
+    logger.debug('WoodpeckerService', `API key from settings: ${!!settingsService.getWoodpeckerApiKey()}`)
     logger.debug('WoodpeckerService', `Final key available: ${!!key && key !== 'replace'}`)
 
     if (!key || key === 'replace') {

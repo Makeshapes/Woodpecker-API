@@ -1,12 +1,17 @@
 import { logger } from '../utils/logger'
+import { settingsService } from './settingsService'
 
 // Lazy load Anthropic SDK only when needed
 let anthropicClient: any = null
 const getAnthropicClient = async () => {
   if (!anthropicClient) {
+    const apiKey = settingsService.getClaudeApiKey()
+    if (!apiKey) {
+      throw new Error('Claude API key not configured. Please add your API key in Settings.')
+    }
     const Anthropic = await import('@anthropic-ai/sdk')
     anthropicClient = new Anthropic.default({
-      apiKey: process.env.CLAUDE_API_KEY,
+      apiKey: apiKey,
     })
   }
   return anthropicClient

@@ -101,6 +101,23 @@ export interface ElectronAPI {
   database: {
     clear: () => Promise<IpcResponse<{ success: boolean }>>;
   };
+
+  // Settings operations
+  settings: {
+    getApiKeysStatus: () => Promise<{
+      claude: boolean;
+      woodpecker: boolean;
+      claudeKeyMasked: string | null;
+      woodpeckerKeyMasked: string | null;
+    }>;
+    updateApiKeys: (keys: {
+      claudeApiKey?: string;
+      woodpeckerApiKey?: string;
+    }) => Promise<{ success: boolean }>;
+    validateClaudeKey: (apiKey: string) => Promise<{ valid: boolean; error?: string }>;
+    validateWoodpeckerKey: (apiKey: string) => Promise<{ valid: boolean; error?: string }>;
+    getSettingsPath: () => Promise<string>;
+  };
 }
 
 // Create the API object with all database operations
@@ -171,6 +188,14 @@ const electronAPI: ElectronAPI = {
 
   database: {
     clear: () => ipcRenderer.invoke('ipc:database:clear'),
+  },
+
+  settings: {
+    getApiKeysStatus: () => ipcRenderer.invoke('settings:getApiKeysStatus'),
+    updateApiKeys: (keys) => ipcRenderer.invoke('settings:updateApiKeys', keys),
+    validateClaudeKey: (apiKey) => ipcRenderer.invoke('settings:validateClaudeKey', apiKey),
+    validateWoodpeckerKey: (apiKey) => ipcRenderer.invoke('settings:validateWoodpeckerKey', apiKey),
+    getSettingsPath: () => ipcRenderer.invoke('settings:getSettingsPath'),
   },
 };
 

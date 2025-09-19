@@ -8,6 +8,7 @@ import { setupAdvancedQueriesHandlers } from './advanced-queries';
 import { setupClaudeHandlers } from './claudeHandlers';
 import { setupWoodpeckerHandlers } from './woodpeckerHandlers';
 import { setupDatabaseHandlers } from './database';
+import { setupSettingsHandlers } from './settingsHandlers';
 
 /**
  * Setup all IPC handlers for database operations
@@ -32,6 +33,9 @@ export function setupIpcHandlers(appDataPath: string): void {
 
     // Setup Woodpecker API handlers
     setupWoodpeckerHandlers();
+
+    // Setup Settings handlers
+    setupSettingsHandlers();
 
     console.log('All IPC handlers setup successfully');
   } catch (error) {
