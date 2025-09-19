@@ -21,6 +21,9 @@ export interface LeadData {
   email: string
   industry: string
   linkedin_url: string
+  city?: string
+  state?: string
+  country?: string
   tags?: string
   custom_prompt?: string
 }
