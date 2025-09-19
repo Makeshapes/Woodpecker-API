@@ -38,14 +38,14 @@ export class TemplateBasedGenerationService {
           step: 1,
           type: 'email',
           subject: 'Delivering group learning at scale',
-          description: 'Day 1 - Email subject line only',
+          description: 'Day 1 - Email Subject Line Only',
           body: '',
         },
         {
           step: 2,
           type: 'email',
           subject: 'Delivering group learning at scale',
-          description: 'Day 1 - Full intro email',
+          description: 'Day 1 - Full Intro Email',
           body: `Hi {{FIRST_NAME}},
 
 We've built a new approach to group learning that's not dependent on facilitators. Our main focus has been supporting dispersed orgs facing these key challenges:
@@ -64,15 +64,15 @@ Curious if these are challenges you are facing at {{COMPANY}}. If so, interested
           step: 3,
           type: 'linkedin',
           subject: '',
-          description: 'Day 3 - LinkedIn message',
-          body: `Hi {{FIRST_NAME}}, I sent you an email about group learning solutions for {{COMPANY}}. Would love to connect and discuss how we're helping {{INDUSTRY}} organizations scale their learning delivery. Thanks!`,
+          description: 'Day 3 - LinkedIn Message',
+          body: `Hi {{FIRST_NAME}}, I sent you an email about group learning at {{COMPANY}}. Would love to connect and discuss how we're helping {{INDUSTRY}} organizations scale and overcome challenges that come with a complex workforce. Best—Dan`,
         },
 
         {
           step: 4,
           type: 'email',
           subject: '',
-          description: 'Day 7 - Email with social proof',
+          description: 'Day 7 - Email with Social Proof',
           body: `{{FIRST_NAME}}—for context, we're helping organisations like QBE Insurance, Westpac Bank, AirNZ, Zespri International and others deliver various formats of group learning (leader-led, peer-to-peer, train-the-trainer).
 
 Open to learning more?
@@ -83,7 +83,7 @@ Open to learning more?
           step: 5,
           type: 'email',
           subject: '',
-          description: 'Day 12 - Email with video case study',
+          description: 'Day 12 - Email with Video Case Study',
           body: `{{FIRST_NAME}},
 
 I'm conscious there's a lot of noise in the learning tech space—everyone saying they have something unique. 
@@ -100,7 +100,7 @@ If it piques your curiosity let's find time to have a call.
           step: 6,
           type: 'email',
           subject: '',
-          description: 'Day 17 - Demo offer email',
+          description: 'Day 17 - Demo Offer Email',
           body: `{{FIRST_NAME}}, sometimes it's easier to show, rather than tell. Just reply "yes" if you're interested in me sharing a demo link to an experience with you.
 
 Alternatively happy to book in some time and give you a live demo.
@@ -113,7 +113,7 @@ PS - If there is someone else in the team that I should speak with, let me know.
           step: 7,
           type: 'email',
           subject: '',
-          description: 'Day 25 - Final breakup email',
+          description: 'Day 25 - Final Breakup Email',
           body: `{{FIRST_NAME}},
 
 I'll stop reaching out for now, but wanted to leave you with this thought:

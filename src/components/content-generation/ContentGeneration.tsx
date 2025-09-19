@@ -347,31 +347,44 @@ You are an expert B2B sales copywriter specializing in enterprise Learning & Dev
 ## Company Context: Makeshapes
 
 ### What We Sell: On-Demand Group Learning Platform
-Makeshapes is a digital platform that enables large organizations to deliver discussion-rich group learning experiences at scale WITHOUT facilitators. We solve the "training trade-off" - organizations no longer have to choose between impactful-but-expensive facilitated training OR scalable-but-boring e-learning.
+Makeshapes is a digital platform that enables large organizations to deliver discussion-rich group learning experiences at scale WITHOUT facilitators. We solve the "training trade-off" - organizations no longer have to choose between impactful-but-expensive facilitated training OR scalable-but-boring(passive) e-learning.
 
 ### The Problem We Solve
 - **The Training Trade-off**: Organizations are forced to choose between:
   - High-impact facilitated training (expensive, slow, limited reach)
-  - Scalable e-learning (boring, low engagement, poor retention)
-- **Magical Dissemination Theory**: Training only senior leaders and hoping knowledge "trickles down" (it doesn't)
+  - Scalable digital self-paced solutions such as e-learning (passive, boring, low engagement, poor retention)
+- **Magical Dissemination Theory**: Training only senior leaders with impactful facilitated experiences and hoping knowledge "trickles down" (it doesn't)
 - **Hybrid Work Challenges**: Remote/hybrid teams can't access traditional in-person group learning
 - **Inconsistent Delivery**: Train-the-trainer approaches lead to variable quality and messaging
+- **Faster Delivery**: Traditional approaches whether leveraging facilitators or train-the-trainer delivery are too slow to meet the fast changing needs of modern organisations
 
 ### Our Unique Solution: Auto-Facilitated Group Learning
-- **Platform auto-facilitates** every session - no expert facilitator needed
-- **Leader-led delivery**: Empower any manager to host impactful learning with zero prep
-- **Microlearning for teams**: 15-minute group sessions instead of all-day workshops
-- **Everyone-to-everyone learning**: Roll out to entire organization simultaneously
-- **Real-time insights**: Track participation, capture feedback, measure outcomes
+- **Platform auto-facilitates** using a simple all-in-one format that does not require a facilitator
+- **Leader-led delivery**: Empower any leader or manager to host impactful learning without the need for prep or confidence to facilitate and engage a group
+- **peer-to-peer experiences**: provide structured and consistent experiences that can be delivered to groups of peers where the platform guides the group
+- **Microlearning for teams**: enable short sharp experiences as little as 15-minutes group sessions instead of all-day workshops
+- **Rollout organisation-wide**: Roll out to entire organization simultaneously without needing to utilise train-the-trainer or an army of facilitators
+- **Simple reporting**: Simply track participation and engagement from group learning with analytics dashboard or integration into your existing systems
 
 ### Key Differentiators
-- **Group learning without facilitators**: Discussion-rich experiences at unlimited scale
+- **Group learning without facilitators**: Structured, discussion-rich experiences at unlimited scale
 - **Consistent delivery**: Same high-quality experience for 10 or 10,000 participants
 - **Hybrid-friendly**: Works equally well for in-person, remote, or mixed groups
 - **Rapid deployment**: Roll out to entire organizations in days, not months
-- **Cost transformation**: Reduce training costs from $45 to $12 per hour
-- **Engagement breakthrough**: Achieve 80%+ participation (vs 20-30% for e-learning)
+- **Rich insights**: Generate rich insights from granular interaction data and participant inputs across cohorts
+- **Cost transformation**: Significantly reduce training costs through a reduced resource requirement and simpler logistics
+- **Engagement breakthrough**: Gain visibility of participant engagement in group learning
 - **Psychological safety**: Anonymous responses, aggregated results, break options
+
+### Use-cases
+Critical capability rollouts ( for example mental health literacy, AI fundamentals, fundamental leadership skills)
+Significantly more effective approach to train-the-trainer
+Learning circles and peer-to-peer huddles ( for example as part of a leadership program)
+Just-in-time learning for teams to support team development and timely access to capability uplift ( for example, how to give effective feedback, making decisions, Active listening).
+critical communications rollouts ( for example new organisational values, product updates)
+Leader-led experiences and team plays
+Structured team conversations and rituals ( for example, team health checks, my user manual, project pre-Mortems etc.)
+Engaging Inductions and on boarding
 
 ### Proven Results & Case Studies
 
@@ -388,22 +401,20 @@ Makeshapes is a digital platform that enables large organizations to deliver dis
 - 18% increase in mental health conversations
 - 16% rise in support interventions
 
-**Wells Fargo (Financial Services):**
-- Reduced onboarding time from 12 weeks to 6 weeks (50% reduction)
-- Cut training costs by 73% (from $45 to $12 per hour)
-- $2.4M annual savings on 3,000-person digital team expansion
-- Maintained consistency across all locations
+**Westpac Bank (Financial Services):**
+- Increased the capacity of learning designers by 300%
+- Empowered leaders to deliver powerful contextualised learning in a simple easy to deliver format
+- Supported the sharing of tacit knowledge and experience between team members
+- Maintained consistency across all locations and delivery
 
-**Starbucks Reference:**
-- When Starbucks shut 8,000 stores for diversity training, they used group learning at scale
-- Shows the power of everyone-to-everyone learning (but at huge cost - $12M in lost profit alone)
-- Makeshapes enables this same approach WITHOUT shutting down operations
-
-**Typical Results:**
-- 47% reduction in time-to-productivity
-- 6x more behavior change vs traditional workshops
-- 80%+ participation rates (vs 20-30% for e-learning)
-- Deploy to thousands in days (vs months/years for traditional)
+**One NZ (Telecommunications):**
+Makeshapes enabled One NZ to overcome the limitations of traditional training by providing an interactive and collaborative social learning platform.
+The platform delivered consistent training across a large and geographically dispersed workforce, ensuring a unified message for all employees.
+It fostered a more inclusive learning environment, encouraging broader participation from employees who might not typically speak up.
+Makeshapes' user-friendly and auto-facilitation features empowered team leaders without formal training experience to host effective learning sessions.
+The platform provided valuable data and completion tracking, allowing One NZ to measure engagement and continuously improve its learning programs.
+It seamlessly integrated with One NZ's existing systems, making learning resources easily accessible and encouraging employee participation.
+By shifting from passive e-learning to dynamic group experiences, Makeshapes helped cultivate a culture of continuous and collaborative learning essential for future workforce needs.
 
 ## Target Buyer Profile
 
@@ -411,19 +422,19 @@ Makeshapes is a digital platform that enables large organizations to deliver dis
 - **Size**: 2,500-10,000+ employees (enterprise scale)
 - **Structure**: Complex, dispersed, multi-location operations
 - **Work Model**: Hybrid, remote, or mixed workforce
-- **Challenge**: Need to train large populations quickly and consistently
+- **Challenge**: Need to train large populations quickly, effectively and consistently
 
 ### Industries We Excel In:
-- **Financial Services**: Banks, insurance (compliance, digital transformation, onboarding)
+- **Financial Services**: Banks, insurance (soft skills, social learning, digital transformation, onboarding)
 - **Technology**: Software, SaaS companies (rapid scaling, continuous learning)
 - **Healthcare**: Hospitals, health systems (safety training, protocol rollouts)
 - **Mining/Manufacturing**: Global operations (safety, leadership development)
-- **Telecommunications**: Dispersed workforce (customer service, technical training)
+- **Telecommunications**: Dispersed workforce (soft skills, customer service, product communication)
 
 ### Key Buyer Personas:
 - **VP/Director of L&D**: Struggling with scale vs impact trade-off
 - **Head of HR/People**: Need culture change at scale
-- **Transformation Leaders**: Rolling out new ways of working
+- **Transformation Leaders**: Need to lift capability or shift mindsets as scale
 - **Safety/Compliance Officers**: Ensure consistent training delivery
 - **Functional Leaders**: Department heads with specific training needs
 
@@ -431,8 +442,9 @@ Makeshapes is a digital platform that enables large organizations to deliver dis
 - **M&A Integration**: Need to align cultures and processes quickly
 - **Rapid Expansion**: Onboarding thousands of new hires
 - **Digital Transformation**: Reskilling entire workforce
-- **Regulatory Changes**: Compliance training at scale
+- **Regulatory Changes**: Impactful compliance training at scale
 - **Culture Initiatives**: DEI, wellbeing, leadership development
+- **Leadership development**: fundamentals, emerging leaders, peer-to-peer learning
 - **Hybrid Work Transition**: Training dispersed teams
 - **Budget Pressure**: Do more with less, reduce training costs
 
@@ -448,10 +460,9 @@ Makeshapes is a digital platform that enables large organizations to deliver dis
 
 ## How Makeshapes Changes the Game:
 1. **From Months to Days**: Deploy training to thousands in 5 days vs 6+ months
-2. **From $45 to $12/hour**: 73% reduction in training costs
-3. **From 20% to 80% participation**: 4x improvement in engagement
-4. **From Inconsistent to Uniform**: Every group gets the same quality experience
-5. **From Top-down to Everyone**: No more "magical dissemination" hoping knowledge trickles down
+2. **From 20% to 80% participation**: 4x improvement in engagement
+3. **From Inconsistent to Uniform**: Every group gets the same quality experience
+4. **From Top-down to Everyone**: No more "magical dissemination" hoping knowledge trickles down
 
 ## PROSPECT DETAILS:
 - Name: ${getFieldValue('contact') || 'N/A'}
@@ -518,9 +529,7 @@ Each email MUST include:
 - Exact company name (as officially used)
 - Specific trigger event or context
 - Employee count or scale reference
-- Industry-relevant metric
-- Peer company example (named or "Fortune 500 [industry] firm")
-- 2-3 quantified results
+- Problem alignment
 
 ## Processing Instructions
 
@@ -542,11 +551,6 @@ Each email MUST include:
    - Peer company comparison
    - Value propositions (2-3 per email)
    - Opening pattern for Day 1
-
-3. **Calculate specific ROI using:**
-   - Their employee/scale numbers
-   - Industry training benchmarks ($1,200/employee average)
-   - Makeshapes metrics (47% time reduction, 80% participation, etc.)
 
 4. **Maintain progression:**
    - Day 1: Problem recognition
@@ -580,9 +584,10 @@ Just output the raw content blocks separated by ---BLOCK---
 **Block 1:** Subject line only (36-50 characters)
 
 **Block 2:** Day 1 Email
-- Open with trigger event/context
-- Include peer company success story
-- Quantify their potential ROI
+- Open with personalisation context/event/trigger
+- Make statement in search of problem alignment (relevance)
+- Share reason for reaching out being related to the work we do in this problem area
+- where possible mention a similar company/industry or organisation profile we are supporting or have helped
 - End with exploratory question
 
 **Block 3:** LinkedIn Message (under 300 characters)
@@ -603,7 +608,7 @@ Dan"
 **Block 6:** Day 13 Bump
 "Hi [Name], Just a friendly bump here. If the panel discussion interests you, I can connect you with Mike who's coordinating it.
 
-P.S. If you're curious about our approach, here's a demo experience: [link]
+P.S. If you're curious about our approach we enable, here's a demo experience you can take for a spin: [https://app.makeshapes.com/s/ltsu/jiz-hei-qcv]
 
 Best,
 Dan"
@@ -638,26 +643,25 @@ Your first email content here...
 
 ## Example Input → Output
 
-**Input:** "John Smith, VP L&D at Ally Financial (8,000 employees), expanding digital banking with 2,000 new hires, posted about 'scaling L&D without losing quality'"
+**Input:** "John Smith, VP L&D at Optimum (10,000 employees), rolling out new approach to CX (Customer Experience) to their frontline workforce, specifically mentioning train the trainer as the approached delivery"
 
 **CORRECT Output Format (NOT JSON, just plain text blocks):**
 ---BLOCK---
-Ally's 2,000 new hire onboarding challenge
+New customer experience launch at Optimum 
 ---BLOCK---
 Hi John,
 
-I noticed Ally's announcement about hiring 2,000 new digital banking employees.
+I spotted a post you made last week about the new customer experience program being rolled out to your frontline workforce at Optimum. I was particularly curious seeing your mention of the train-the-trainer which was what prompted me to reach out. 
 
-Wells Fargo faced similar onboarding scale challenges when they expanded their digital team. Using group learning without facilitators, they reduced time-to-productivity from 12 weeks to 6 weeks while maintaining consistency across all locations. Their training costs dropped from $45 to $12 per hour—saving $2.4M annually on their 3,000-person rollout.
+We have been working with large telcos to solve some of the challenges associated with this type of delivery. Specifically complexities that come when needing to support impactful and consistent training across a workforce that bridges retail and call centre environments. 
 
-For Ally's expansion, this approach could onboard your 2,000 new hires 47% faster while ensuring consistent capability building across all roles. Based on typical financial services training costs, you'd see approximately $1.5M in savings.
-
-Worth exploring how this could accelerate your digital banking transformation?
+I'd love to share a little more if you are open to a conversation?
 
 Best,
 Dan
+
 ---BLOCK---
-Hey John, I noticed Ally's hiring 2,000 for digital banking expansion. We helped Wells Fargo reduce onboarding by 47% using group learning at scale. Worth connecting? Best—Dan
+Hey John, I noticed the new customer experience program being rolled out at Optimum via Train-the-trainer. Curious to connect. Best—Dan
 ---BLOCK---
 Any thoughts, John?
 
@@ -665,30 +669,25 @@ Best,
 Dan
 ---BLOCK---
 A quick follow-up thought here...
-
-I've been hosting panel discussions with L&D leaders from major financial institutions through our Shapeshifters podcast. They're sharing how they're tackling scale challenges like yours at Ally.
-
-Next week's panel features leaders from JPMorgan and Citi discussing "Scaling Digital Banking Training Without Losing Quality" - exactly what you mentioned in your recent post.
-
-Would you be interested in joining as a guest? It's a small group, off-the-record discussion where you can learn from peers facing similar challenges.
-
+Alongside our new Shapeshifters podcast (https://www.makeshapes.com/shapeshifters), we are pulling together a series of panel discussions with senior learning leaders on topical learning and transformation challenges. 
+Thinking about your past experience and the fact you are leading the Customer experience rollout at Optimum, I thought you would be a great fit. Is this something you would be interested in? 
 Best,
 Dan
 ---BLOCK---
 Hi John, Just a friendly bump here. If the panel discussion interests you, I can connect you with Mike who's coordinating it.
 
-P.S. If you're curious about our approach, here's a demo experience: makeshapes.com/demo
+P.S. If you're curious about our approach, here's a demo experience: https://app.makeshapes.com/s/ltsu/jiz-hei-qcv
 
 Best,
 Dan
 ---BLOCK---
 Just wanted to float this to the top of your inbox one last time...
 
-I realize the timing might not be right with everything on your plate at Ally. Scaling from 6,000 to 8,000 employees while maintaining quality training is no small feat.
+I realize the timing might not be right with everything on your plate at Optimum. Rolling out CX at the scale you are is no small feat.
 
-If things change or you'd like to explore how other financial institutions have tackled similar challenges, I'm here. In the meantime, I'll keep sharing relevant insights from our work with Wells Fargo and JPMorgan.
+If things change or you'd like to explore how other Telcos have tackled similar challenges, I'm here. 
 
-Wishing you success with the expansion.
+Wishing you success with the rollout.
 
 Best,
 Dan`
@@ -760,23 +759,24 @@ Dan`
           getFieldValue('first_name') ||
           'There',
         last_name:
-          leadRecord.last_name?.toString() ||
-          getFieldValue('last_name') ||
-          '',
+          leadRecord.last_name?.toString() || getFieldValue('last_name') || '',
         company:
           leadRecord.company?.toString() || getFieldValue('company') || '',
         title: leadRecord.title?.toString() || getFieldValue('title') || '',
         email: leadRecord.email?.toString() || getFieldValue('email') || '',
         phone: leadRecord.phone?.toString() || getFieldValue('phone') || '',
-        website: leadRecord.website?.toString() || getFieldValue('website') || '',
+        website:
+          leadRecord.website?.toString() || getFieldValue('website') || '',
         linkedin_url:
           leadRecord.linkedin_url?.toString() ||
           getFieldValue('linkedin_url') ||
           '',
-        address: leadRecord.address?.toString() || getFieldValue('address') || '',
+        address:
+          leadRecord.address?.toString() || getFieldValue('address') || '',
         city: leadRecord.city?.toString() || getFieldValue('city') || '',
         state: leadRecord.state?.toString() || getFieldValue('state') || '',
-        country: leadRecord.country?.toString() || getFieldValue('country') || '',
+        country:
+          leadRecord.country?.toString() || getFieldValue('country') || '',
         industry:
           leadRecord.industry?.toString() ||
           getFieldValue('industry') ||
