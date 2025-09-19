@@ -80,8 +80,29 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 let win: BrowserWindow | null = null
-const preload = path.join(__dirname, 'preload.mjs')
+
+// Preload script path - handle both dev and production
+let preload: string
+if (app.isPackaged) {
+  // In production, preload script is unpacked outside the asar
+  const appPath = app.getAppPath()
+  preload = path.join(appPath + '.unpacked', 'dist-electron', 'preload.mjs')
+} else {
+  // In development
+  preload = path.join(__dirname, 'preload.mjs')
+}
+
 const indexHtml = path.join(RENDERER_DIST, 'index.html')
+
+// Debug preload script path
+console.log('🔧 Preload script path:', preload)
+console.log('🔧 Index HTML path:', indexHtml)
+console.log('🔧 __dirname:', __dirname)
+console.log('🔧 MAIN_DIST:', MAIN_DIST)
+console.log('🔧 RENDERER_DIST:', RENDERER_DIST)
+
+// Note: Skipping file existence checks in production as they can cause issues with ASAR archives
+console.log('📋 File validation skipped for ASAR compatibility')
 
 /**
  * Create application menu

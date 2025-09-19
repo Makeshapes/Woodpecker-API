@@ -114,6 +114,9 @@
       "!node_modules/**/.bin/**/*",
       "package.json"
     ],
+    "asarUnpack": [
+      "dist-electron/preload.mjs"
+    ],
     "mac": {
       "target": [
         {

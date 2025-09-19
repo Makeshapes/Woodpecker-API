@@ -1,4 +1,5 @@
 import { DALError, ValidationError, NotFoundError, ForeignKeyError, UniqueConstraintError, TransactionError } from '../../database/dal';
+import { WoodpeckerApiError } from '../services/woodpeckerService';
 import { logger } from '../utils/logger';
 
 /**
@@ -96,7 +97,22 @@ export function handleIpcError(error: unknown, operation: string): IpcErrorRespo
       }
     };
   }
-  
+
+  if (error instanceof WoodpeckerApiError) {
+    return {
+      success: false,
+      error: {
+        type: 'WoodpeckerApiError',
+        message: error.message,
+        code: `WOODPECKER_${error.category.toUpperCase()}`,
+        details: {
+          category: error.category,
+          retryable: error.retryable
+        }
+      }
+    };
+  }
+
   // Handle generic errors
   const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
   return {

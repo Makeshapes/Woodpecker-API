@@ -189,11 +189,61 @@ const electronAPI: ElectronAPI = {
   },
 
   woodpecker: {
-    getCampaigns: (request) => ipcRenderer.invoke('ipc:woodpecker:getCampaigns', request),
-    addProspects: (request) => ipcRenderer.invoke('ipc:woodpecker:addProspects', request),
-    checkDuplicates: (request) => ipcRenderer.invoke('ipc:woodpecker:checkDuplicates', request),
-    clearCache: () => ipcRenderer.invoke('ipc:woodpecker:clearCache'),
-    getQuotaInfo: () => ipcRenderer.invoke('ipc:woodpecker:getQuotaInfo'),
+    getCampaigns: async (request) => {
+      try {
+        console.log('🔌 [PRELOAD] Calling ipc:woodpecker:getCampaigns with request:', request);
+        const result = await ipcRenderer.invoke('ipc:woodpecker:getCampaigns', request);
+        console.log('🔌 [PRELOAD] getCampaigns result:', result);
+        return result;
+      } catch (error) {
+        console.error('🔌 [PRELOAD] getCampaigns error:', error);
+        throw error;
+      }
+    },
+    addProspects: async (request) => {
+      try {
+        console.log('🔌 [PRELOAD] Calling ipc:woodpecker:addProspects');
+        const result = await ipcRenderer.invoke('ipc:woodpecker:addProspects', request);
+        console.log('🔌 [PRELOAD] addProspects result:', result);
+        return result;
+      } catch (error) {
+        console.error('🔌 [PRELOAD] addProspects error:', error);
+        throw error;
+      }
+    },
+    checkDuplicates: async (request) => {
+      try {
+        console.log('🔌 [PRELOAD] Calling ipc:woodpecker:checkDuplicates');
+        const result = await ipcRenderer.invoke('ipc:woodpecker:checkDuplicates', request);
+        console.log('🔌 [PRELOAD] checkDuplicates result:', result);
+        return result;
+      } catch (error) {
+        console.error('🔌 [PRELOAD] checkDuplicates error:', error);
+        throw error;
+      }
+    },
+    clearCache: async () => {
+      try {
+        console.log('🔌 [PRELOAD] Calling ipc:woodpecker:clearCache');
+        const result = await ipcRenderer.invoke('ipc:woodpecker:clearCache');
+        console.log('🔌 [PRELOAD] clearCache result:', result);
+        return result;
+      } catch (error) {
+        console.error('🔌 [PRELOAD] clearCache error:', error);
+        throw error;
+      }
+    },
+    getQuotaInfo: async () => {
+      try {
+        console.log('🔌 [PRELOAD] Calling ipc:woodpecker:getQuotaInfo');
+        const result = await ipcRenderer.invoke('ipc:woodpecker:getQuotaInfo');
+        console.log('🔌 [PRELOAD] getQuotaInfo result:', result);
+        return result;
+      } catch (error) {
+        console.error('🔌 [PRELOAD] getQuotaInfo error:', error);
+        throw error;
+      }
+    },
   },
 
   database: {
@@ -218,6 +268,23 @@ console.log('🚀 Preload script executing...');
 // Expose the API to the renderer process through contextBridge
 contextBridge.exposeInMainWorld('api', electronAPI);
 console.log('✅ Exposed window.api');
+
+// Debug: Test if specific APIs are accessible
+try {
+  if (electronAPI.woodpecker && electronAPI.woodpecker.getCampaigns) {
+    console.log('✅ Woodpecker API is properly exposed');
+  } else {
+    console.error('❌ Woodpecker API not properly exposed');
+  }
+
+  if (electronAPI.settings && electronAPI.settings.getApiKeysStatus) {
+    console.log('✅ Settings API is properly exposed');
+  } else {
+    console.error('❌ Settings API not properly exposed');
+  }
+} catch (error) {
+  console.error('❌ Error checking API exposure:', error);
+}
 
 // Also expose some utility functions
 contextBridge.exposeInMainWorld('electronUtils', {
