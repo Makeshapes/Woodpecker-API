@@ -28,7 +28,7 @@ import {
 import type { LeadData, ColumnMapping, LeadStatus } from '@/types/lead'
 import { getStandardFields } from '@/utils/fieldMapper'
 import { Trash2, Copy, Download } from 'lucide-react'
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, memo } from 'react'
 import type { ClaudeResponse } from '@/services/claudeService'
 import ConversionButton from '@/components/content-generation/ConversionButton'
 import {
@@ -47,7 +47,7 @@ interface LeadDetailProps {
   onDeleteLead?: (leadId: string) => void
 }
 
-export function LeadDetail({
+const LeadDetail = memo(function LeadDetail({
   lead,
   columnMapping,
   open,
@@ -590,4 +590,6 @@ export function LeadDetail({
       </SheetContent>
     </Sheet>
   )
-}
+})
+
+export { LeadDetail }

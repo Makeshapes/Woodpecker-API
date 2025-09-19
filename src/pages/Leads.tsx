@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useLocation } from 'react-router-dom'
 import { LeadList } from '@/components/lead-list/LeadList'
 import { LeadDetail } from '@/components/lead-list/LeadDetail'
@@ -34,13 +34,16 @@ export function Leads() {
     clearError
   } = useLeadOperations()
 
+  // Memoize the location state to prevent unnecessary re-renders
+  const locationState = useMemo(() => location.state as LocationState, [location.state])
+
   // Initialize leads - either from CSV import or from storage
   useEffect(() => {
     console.log('🔄 useEffect triggered, isImportProcessing:', isImportProcessing)
     console.log('🔄 location.state:', !!location.state)
 
     const initializeLeads = async () => {
-      const state = location.state as LocationState
+      const state = locationState
 
       console.log('🔍 initializeLeads called')
       console.log('🔍 state?.csvData:', !!state?.csvData)
@@ -124,21 +127,21 @@ export function Leads() {
         setLoading(false)
       }
     }
-    
+
     initializeLeads()
-  }, [location.state])
+  }, [locationState]) // Now properly memoized
 
-  const handleLeadSelect = (leadIds: string[]) => {
+  const handleLeadSelect = useCallback((leadIds: string[]) => {
     setSelectedLeads(leadIds)
-  }
+  }, [])
 
-  const handleLeadDetail = (lead: LeadData) => {
+  const handleLeadDetail = useCallback((lead: LeadData) => {
     setDetailLead(lead)
-  }
+  }, [])
 
 
 
-  const handleStatusUpdate = async (leadId: string, status: LeadData['status']) => {
+  const handleStatusUpdate = useCallback(async (leadId: string, status: LeadData['status']) => {
     const success = await executeApiOperation(
       () => leadsStorage.updateLeadStatus(leadId, status),
       {
@@ -160,10 +163,10 @@ export function Leads() {
 
       toast.success('Lead status updated')
     }
-  }
+  }, [executeApiOperation, detailLead?.id])
 
 
-  const handleDeleteLeads = async (leadIds: string[]) => {
+  const handleDeleteLeads = useCallback(async (leadIds: string[]) => {
     if (confirm(`Are you sure you want to delete ${leadIds.length} lead(s)?`)) {
       const success = await executeApiOperation(
         () => leadsStorage.updateMultipleLeadsStatus(leadIds, 'deleted'),
@@ -192,9 +195,9 @@ export function Leads() {
         toast.success(`Deleted ${leadIds.length} lead(s)`)
       }
     }
-  }
+  }, [executeApiOperation, detailLead])
 
-  const handleDeleteLead = async (leadId: string) => {
+  const handleDeleteLead = useCallback(async (leadId: string) => {
     if (confirm('Are you sure you want to remove this lead from the list?')) {
       const success = await executeApiOperation(
         () => leadsStorage.updateLeadStatus(leadId, 'deleted'),
@@ -223,7 +226,7 @@ export function Leads() {
         toast.success('Lead deleted')
       }
     }
-  }
+  }, [executeApiOperation, detailLead?.id])
 
 
   if (loading) {

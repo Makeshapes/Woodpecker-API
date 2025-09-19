@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, memo } from 'react'
 import {
   Table,
   TableBody,
@@ -33,7 +33,7 @@ interface LeadListProps {
 type SortField = string
 type SortDirection = 'asc' | 'desc'
 
-export function LeadList({
+const LeadList = memo(function LeadList({
   leads,
   columnMapping,
   onLeadSelect,
@@ -329,4 +329,6 @@ export function LeadList({
       </CardContent>
     </Card>
   )
-}
+})
+
+export { LeadList }
