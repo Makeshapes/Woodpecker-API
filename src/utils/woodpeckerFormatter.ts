@@ -2,6 +2,24 @@ import type { WoodpeckerProspect } from '@/services/woodpeckerService'
 import type { LeadData } from '@/types/lead'
 import { detectTimezone } from './timezoneDetector'
 
+/**
+ * Convert timezone name to UTC offset string
+ */
+function getUtcOffset(timezone: string): string {
+  try {
+    const now = new Date()
+    const utc = new Date(now.getTime() + (now.getTimezoneOffset() * 60000))
+    const targetTime = new Date(utc.toLocaleString('en-US', { timeZone: timezone }))
+    const offsetMinutes = (targetTime.getTime() - utc.getTime()) / (1000 * 60)
+    const offsetHours = Math.floor(Math.abs(offsetMinutes) / 60)
+    const offsetMins = Math.abs(offsetMinutes) % 60
+    const sign = offsetMinutes >= 0 ? '+' : '-'
+    return `${sign}${offsetHours.toString().padStart(2, '0')}:${offsetMins.toString().padStart(2, '0')}`
+  } catch {
+    return '+00:00' // Fallback to UTC
+  }
+}
+
 export interface GeneratedContent {
   snippet1?: string
   snippet2?: string
@@ -86,6 +104,16 @@ export function formatProspectForWoodpecker(
   if (country) prospect.country = country
   if (timezone) {
     prospect.time_zone = timezone // Woodpecker expects time_zone field
+    prospect.timezone = timezone // Also try timezone field (undocumented but might work)
+    prospect.tz = timezone // Short timezone field (common in APIs)
+    prospect.timeZone = timezone // CamelCase variant
+    prospect.prospect_timezone = timezone // Following their campaign naming pattern
+    prospect.utc_offset = getUtcOffset(timezone) // UTC offset format like "-05:00"
+
+    // Also try storing in snippet fields as backup (if not already used)
+    if (!prospect.snippet7) {
+      prospect.snippet7 = `timezone:${timezone}` // Structured format in snippet
+    }
   }
 
   console.log('🎯 WoodpeckerFormatter: Extracted fields', {

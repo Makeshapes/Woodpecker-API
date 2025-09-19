@@ -17,6 +17,11 @@ interface WoodpeckerProspect {
   state?: string;
   country?: string;
   time_zone?: string;  // Woodpecker expects time_zone, not timezone
+  timezone?: string;   // Also try timezone field (undocumented but might work)
+  tz?: string;         // Short timezone field (common in APIs)
+  timeZone?: string;   // CamelCase variant
+  prospect_timezone?: string; // Following their campaign naming pattern
+  utc_offset?: string; // UTC offset format like "-05:00"
   website?: string;    // Company website
   industry?: string;   // Industry field
   snippet1?: string;
