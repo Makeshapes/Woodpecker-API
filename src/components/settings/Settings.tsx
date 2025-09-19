@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
-import { Check, X, Loader2, Eye, EyeOff, Save } from 'lucide-react'
+import { Check, X, Loader2, Eye, EyeOff, Save, Download, Upload, Database, AlertTriangle } from 'lucide-react'
 
 export function Settings() {
   const [claudeApiKey, setClaudeApiKey] = useState('')
@@ -22,9 +22,13 @@ export function Settings() {
     claudeKeyMasked: string | null
     woodpeckerKeyMasked: string | null
   }>({ claude: false, woodpecker: false, claudeKeyMasked: null, woodpeckerKeyMasked: null })
+  const [databaseInfo, setDatabaseInfo] = useState<any>(null)
+  const [isExporting, setIsExporting] = useState(false)
+  const [isImporting, setIsImporting] = useState(false)
 
   useEffect(() => {
     loadExistingKeys()
+    loadDatabaseInfo()
   }, [])
 
   const loadExistingKeys = async () => {
@@ -33,6 +37,55 @@ export function Settings() {
       setExistingKeys(status)
     } catch (error) {
       console.error('Failed to load API keys status:', error)
+    }
+  }
+
+  const loadDatabaseInfo = async () => {
+    try {
+      const info = await window.api.settings.getDatabaseInfo()
+      setDatabaseInfo(info)
+    } catch (error) {
+      console.error('Failed to load database info:', error)
+    }
+  }
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  }
+
+  const exportDatabase = async () => {
+    setIsExporting(true)
+    try {
+      const result = await window.api.settings.exportDatabase()
+      if (result.canceled) {
+        toast.info('Export canceled')
+      } else if (result.success) {
+        toast.success(`Database exported successfully (${formatFileSize(result.size || 0)})`)
+        await loadDatabaseInfo()
+      }
+    } catch (error: any) {
+      toast.error(`Export failed: ${error.message}`)
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  const importDatabase = async () => {
+    setIsImporting(true)
+    try {
+      const result = await window.api.settings.importDatabase()
+      if (result.canceled) {
+        toast.info('Import canceled')
+      } else if (result.success) {
+        toast.success(`Database imported successfully (${formatFileSize(result.size || 0)}). Please restart the app for changes to take effect.`)
+        await loadDatabaseInfo()
+      }
+    } catch (error: any) {
+      toast.error(`Import failed: ${error.message}`)
+    } finally {
+      setIsImporting(false)
     }
   }
 
@@ -275,6 +328,90 @@ export function Settings() {
             )}
           </Button>
         </div>
+
+        {/* Database Management */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Database Management</CardTitle>
+            <CardDescription>
+              Export your database for backup or transfer it to another machine
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {databaseInfo && databaseInfo.exists && (
+              <div className="space-y-2 p-4 bg-muted rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Database className="h-4 w-4" />
+                  <span className="font-medium">Database Information</span>
+                </div>
+                <div className="text-sm text-muted-foreground space-y-1">
+                  <p>Size: {formatFileSize(databaseInfo.size || 0)}</p>
+                  {databaseInfo.records && (
+                    <>
+                      <p>Leads: {databaseInfo.records.leads.toLocaleString()}</p>
+                      <p>Imports: {databaseInfo.records.imports.toLocaleString()}</p>
+                      <p>Generated Content: {databaseInfo.records.content.toLocaleString()}</p>
+                    </>
+                  )}
+                  {databaseInfo.modified && (
+                    <p>Last Modified: {new Date(databaseInfo.modified).toLocaleString()}</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={exportDatabase}
+                disabled={isExporting || !databaseInfo?.exists}
+              >
+                {isExporting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Exporting...
+                  </>
+                ) : (
+                  <>
+                    <Download className="mr-2 h-4 w-4" />
+                    Export Database
+                  </>
+                )}
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={importDatabase}
+                disabled={isImporting}
+              >
+                {isImporting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Importing...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="mr-2 h-4 w-4" />
+                    Import Database
+                  </>
+                )}
+              </Button>
+            </div>
+
+            <div className="text-sm text-muted-foreground bg-amber-50 dark:bg-amber-950/30 p-3 rounded flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="font-medium text-amber-900 dark:text-amber-300">Important:</p>
+                <ul className="mt-1 space-y-1">
+                  <li>• Always export your database before importing a new one</li>
+                  <li>• Importing will replace all current data</li>
+                  <li>• A backup is automatically created when importing</li>
+                  <li>• Restart the app after importing for changes to take effect</li>
+                </ul>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Information Card */}
         <Card className="bg-muted/50">

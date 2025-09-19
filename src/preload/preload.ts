@@ -117,6 +117,16 @@ export interface ElectronAPI {
     validateClaudeKey: (apiKey: string) => Promise<{ valid: boolean; error?: string }>;
     validateWoodpeckerKey: (apiKey: string) => Promise<{ valid: boolean; error?: string }>;
     getSettingsPath: () => Promise<string>;
+    exportDatabase: () => Promise<{ success: boolean; filePath?: string; size?: number; canceled?: boolean }>;
+    importDatabase: () => Promise<{ success: boolean; filePath?: string; backupPath?: string; size?: number; canceled?: boolean }>;
+    getDatabaseInfo: () => Promise<{
+      exists: boolean;
+      path?: string;
+      size?: number;
+      modified?: Date;
+      records?: { leads: number; imports: number; content: number };
+      error?: string;
+    }>;
   };
 }
 
@@ -196,6 +206,9 @@ const electronAPI: ElectronAPI = {
     validateClaudeKey: (apiKey) => ipcRenderer.invoke('settings:validateClaudeKey', apiKey),
     validateWoodpeckerKey: (apiKey) => ipcRenderer.invoke('settings:validateWoodpeckerKey', apiKey),
     getSettingsPath: () => ipcRenderer.invoke('settings:getSettingsPath'),
+    exportDatabase: () => ipcRenderer.invoke('settings:exportDatabase'),
+    importDatabase: () => ipcRenderer.invoke('settings:importDatabase'),
+    getDatabaseInfo: () => ipcRenderer.invoke('settings:getDatabaseInfo'),
   },
 };
 
