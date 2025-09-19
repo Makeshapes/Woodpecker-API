@@ -127,8 +127,8 @@
 2. Check Woodpecker service status
 3. Test API connection:
    ```bash
-   curl -H "Authorization: Bearer YOUR_API_KEY" \
-        https://api.woodpecker.co/rest/v1/campaigns
+   curl -H "x-api-key: YOUR_API_KEY" \
+        https://api.woodpecker.co/rest/v1/campaign_list
    ```
 
 **Solutions**:

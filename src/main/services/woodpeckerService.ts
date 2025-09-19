@@ -105,10 +105,12 @@ export class WoodpeckerService {
     logger.debug('WoodpeckerService', `API key provided via param: ${!!apiKey}`)
     logger.debug('WoodpeckerService', `API key from settings: ${!!settingsService.getWoodpeckerApiKey()}`)
     logger.debug('WoodpeckerService', `Final key available: ${!!key && key !== 'replace'}`)
+    logger.debug('WoodpeckerService', `Environment WOODPECKER_API_KEY: ${!!process.env.WOODPECKER_API_KEY}`)
+    logger.debug('WoodpeckerService', `Final key value: ${key ? key.substring(0, 10) + '...' : 'undefined'}`)
 
     if (!key || key === 'replace') {
-      logger.warn('WoodpeckerService', 'No valid API key found - service will run in demo mode')
-      this.apiKey = '' // Set empty string to trigger demo mode in methods
+      logger.warn('WoodpeckerService', 'No valid API key found')
+      this.apiKey = '' // Set empty string to trigger error in methods
     } else {
       this.apiKey = key
     }
@@ -230,10 +232,11 @@ export class WoodpeckerService {
       return this.cachedCampaigns
     }
 
-    // Check if API key is missing or empty (demo mode)
+    // Check if API key is missing or empty
     if (!this.apiKey || this.apiKey.trim() === '' || this.apiKey === 'replace') {
-      logger.warn('WoodpeckerService', 'No API key, using mock campaigns')
-      return this.getMockCampaigns()
+      const error = new WoodpeckerApiError('Woodpecker API key is not configured. Please add your API key in Settings.', 'auth', false)
+      logger.error('WoodpeckerService', 'No API key configured', error)
+      throw error
     }
 
     try {
@@ -348,10 +351,9 @@ export class WoodpeckerService {
       return progress
     }
 
-    // Demo mode: simulate successful export
+    // Check if API key is missing or empty
     if (!this.apiKey || this.apiKey.trim() === '' || this.apiKey === 'replace') {
-      logger.warn('WoodpeckerService', 'Demo mode - simulating export')
-      return this.simulateExport(prospects, campaignId, onProgress)
+      throw new WoodpeckerApiError('Woodpecker API key is not configured. Please add your API key in Settings.', 'auth', false)
     }
 
     const BATCH_SIZE = 50 // Process in smaller batches to avoid timeouts

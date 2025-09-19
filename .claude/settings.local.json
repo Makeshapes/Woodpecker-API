@@ -40,7 +40,11 @@
       "Bash(git push:*)",
       "Bash(zip:*)",
       "Bash(xargs sed:*)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(VITE_DEV_SERVER_URL=http://localhost:5174 electron dist-electron/main.mjs)",
+      "Bash(open:*)",
+      "Bash(echo \"## Production Build Commands Reference ##\n\n# BUILD COMMANDS:\nnpm run build:production    # Build + create DMG installer (what we just did)\nnpm run build:dmg          # Same as above\nnpm run build:electron     # Build app without installer packaging\nnpm run electron:build     # Same as above\n\n# RUN COMMANDS:\n# Option 1: Use the built app\nopen ''release/mac-universal/Woodpecker API.app''\n\n# Option 2: Install from DMG then run from Applications\n# Double-click the DMG file: ''release/Woodpecker API-1.0.0-universal.dmg''\n# Drag to Applications folder, then run from Applications\n\n# Option 3: Run directly from terminal (with console output)\n''release/mac-universal/Woodpecker API.app/Contents/MacOS/Woodpecker API''\n\n# CLEAN BUILD (if you need fresh build):\nrm -rf release/ dist/ dist-electron/\nnpm run build:production\n\")",
+      "Bash(\"release/mac-universal/Woodpecker API.app/Contents/MacOS/Woodpecker API\")"
     ]
   },
   "hooks": {

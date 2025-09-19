@@ -28,7 +28,7 @@
     "electron:build:dir": "npm run electron:compile && electron-builder --dir",
     "dev:electron": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && npm run electron:dev\"",
     "build:electron": "npm run build && npm run electron:build",
-    "build:production": "NODE_ENV=production npm run build && npm run electron:compile && electron-builder",
+    "build:production": "NODE_ENV=production npm run build && NODE_ENV=production npm run electron:compile && electron-builder",
     "build:dmg": "npm run build:production",
     "verify:build": "node scripts/verify-build.js",
     "dist": "npm run build:electron"

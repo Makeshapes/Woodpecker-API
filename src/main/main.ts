@@ -12,7 +12,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // Load environment variables for the main process (development)
 // Ensures process.env.CLAUDE_API_KEY is available to main services
-if (process.env.NODE_ENV !== 'production') {
+// Only load dotenv in development mode when not packaged
+if (!app.isPackaged && process.env.NODE_ENV !== 'production') {
   dotenv.config()
 }
 
@@ -40,8 +41,18 @@ const appRoot = app.isPackaged ? path.dirname(__dirname) : process.env.APP_ROOT
 export const MAIN_DIST = path.join(appRoot, 'dist-electron')
 export const RENDERER_DIST = path.join(appRoot, 'dist')
 // In dev mode, connect to the Vite dev server
+const isProduction = app.isPackaged || process.env.NODE_ENV === 'production'
+console.log('🔧 Main Process Environment:', {
+  NODE_ENV: process.env.NODE_ENV,
+  isPackaged: app.isPackaged,
+  isProduction,
+  VITE_DEV_SERVER_URL: process.env.VITE_DEV_SERVER_URL
+})
+
 export const VITE_DEV_SERVER_URL =
-  process.env.NODE_ENV !== 'production' ? 'http://localhost:5173' : undefined
+  !isProduction ? (process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173') : undefined
+
+console.log('🌐 Final VITE_DEV_SERVER_URL:', VITE_DEV_SERVER_URL)
 
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
   ? path.join(appRoot, 'public')
@@ -58,7 +69,7 @@ if (process.platform === 'win32') {
 }
 
 // Enable remote debugging for Playwright MCP integration (development only)
-if (process.env.NODE_ENV !== 'production') {
+if (!isProduction) {
   app.commandLine.appendSwitch('remote-debugging-port', '9222')
   logger.info('App', 'Remote debugging enabled on port 9222 for MCP integration')
 }
@@ -283,7 +294,7 @@ app.whenReady().then(async () => {
     logger.info('App', 'Application starting up')
 
     // In production, attempt to load environment from userData or resources
-    if (process.env.NODE_ENV === 'production') {
+    if (isProduction) {
       try {
         const prodEnvCandidates = [
           path.join(app.getPath('userData'), '.env'),

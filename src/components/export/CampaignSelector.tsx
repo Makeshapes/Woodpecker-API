@@ -46,7 +46,8 @@ export function CampaignSelector({
       const response = await window.api.woodpecker.getCampaigns()
 
       if (!response.success) {
-        throw new Error(response.error || 'Failed to load campaigns')
+        const errorMessage = response.error?.message || response.error?.toString() || 'Failed to load campaigns'
+        throw new Error(errorMessage)
       }
 
       const campaignList = response.data

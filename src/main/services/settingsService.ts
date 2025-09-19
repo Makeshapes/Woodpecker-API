@@ -62,10 +62,16 @@ class SettingsService {
   }
 
   private loadSettings(): void {
+    logger.info('SettingsService', `Loading settings from: ${this.settingsPath}`)
+    logger.debug('SettingsService', `Environment WOODPECKER_API_KEY available: ${!!process.env.WOODPECKER_API_KEY}`)
+    logger.debug('SettingsService', `Environment CLAUDE_API_KEY available: ${!!process.env.CLAUDE_API_KEY}`)
+
     try {
       if (fs.existsSync(this.settingsPath)) {
+        logger.info('SettingsService', 'Settings file exists, loading...')
         const data = fs.readFileSync(this.settingsPath, 'utf8')
         const encrypted = JSON.parse(data)
+        logger.debug('SettingsService', `Encrypted data keys: ${Object.keys(encrypted)}`)
 
         // Decrypt API keys
         this.settings = {
@@ -73,22 +79,28 @@ class SettingsService {
           woodpeckerApiKey: encrypted.woodpeckerApiKey ? this.decrypt(encrypted.woodpeckerApiKey) : undefined,
         }
 
-        logger.info('Settings loaded successfully')
+        logger.info('SettingsService', 'Settings loaded and decrypted successfully')
+        logger.debug('SettingsService', `Decrypted settings - Claude key: ${!!this.settings.claudeApiKey}, Woodpecker key: ${!!this.settings.woodpeckerApiKey}`)
       } else {
-        logger.info('No settings file found, using defaults')
+        logger.info('SettingsService', 'No settings file found, using defaults')
+        this.settings = {}
       }
     } catch (error) {
-      logger.error('Failed to load settings:', error)
+      logger.error('SettingsService', 'Failed to load settings:', error)
       this.settings = {}
     }
 
     // Fallback to environment variables if no settings are configured
     if (!this.settings.claudeApiKey && process.env.CLAUDE_API_KEY) {
+      logger.info('SettingsService', 'Using Claude API key from environment')
       this.settings.claudeApiKey = process.env.CLAUDE_API_KEY
     }
     if (!this.settings.woodpeckerApiKey && process.env.WOODPECKER_API_KEY) {
+      logger.info('SettingsService', 'Using Woodpecker API key from environment')
       this.settings.woodpeckerApiKey = process.env.WOODPECKER_API_KEY
     }
+
+    logger.info('SettingsService', `Final settings - Claude key: ${!!this.settings.claudeApiKey}, Woodpecker key: ${!!this.settings.woodpeckerApiKey}`)
   }
 
   private saveSettings(): void {

@@ -55,7 +55,7 @@ describe('WoodpeckerService', () => {
       const campaigns = await service.getCampaigns();
 
       expect(fetchMock).toHaveBeenCalledWith(
-        'https://api.woodpecker.co/rest/v1/campaigns',
+        'https://api.woodpecker.co/rest/v1/campaign_list',
         expect.objectContaining({
           headers: expect.objectContaining({
             'x-api-key': 'test-api-key-123',

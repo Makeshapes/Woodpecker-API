@@ -75,10 +75,10 @@ export function setupSettingsHandlers(): void {
   ipcMain.handle('settings:validateWoodpeckerKey', async (_, apiKey: string) => {
     try {
       // Make a test API call to validate the key
-      const response = await fetch('https://api.woodpecker.co/rest/v1/campaigns', {
+      const response = await fetch('https://api.woodpecker.co/rest/v1/campaign_list', {
         method: 'GET',
         headers: {
-          'X-API-KEY': apiKey,
+          'x-api-key': apiKey,
           'Content-Type': 'application/json',
         },
       })
