@@ -1,5 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk'
-import { textToHtml, ensureHtml } from '@/utils/htmlConverter'
+// Renderer-side Claude service - now acts as IPC proxy to main process
 
 export interface ClaudeResponse {
   email: string
@@ -48,37 +47,14 @@ export class ClaudeApiError extends Error {
 }
 
 export class ClaudeService {
-  private client: Anthropic
   private readonly MAX_REQUESTS_PER_MINUTE = 100
   private requestCount = 0
   private lastResetTime = Date.now()
 
   constructor(apiKey?: string) {
-    const key = apiKey || import.meta.env.VITE_CLAUDE_API_KEY
-    
-    console.log('🔑 [ClaudeService] Initializing Claude service...')
-    console.log('🔧 [ClaudeService] API key provided via param:', !!apiKey)
-    console.log('🔧 [ClaudeService] API key from env:', !!import.meta.env.VITE_CLAUDE_API_KEY)
-    console.log('🔧 [ClaudeService] Final key available:', !!key && key !== 'replace')
-    
-    if (!key || key === 'replace') {
-      console.error('❌ [ClaudeService] No valid API key found!')
-      throw new ClaudeApiError(
-        'Claude API key not configured. Please set VITE_CLAUDE_API_KEY in your environment.',
-        'auth',
-        false
-      )
-    }
-
-    this.client = new Anthropic({
-      apiKey: key,
-      dangerouslyAllowBrowser: true,
-      defaultHeaders: {
-        'anthropic-beta': 'files-api-2025-04-14'
-      }
-    })
-    
-    console.log('✅ [ClaudeService] Claude client initialized successfully')
+    // Renderer process service - no longer needs API key since we use IPC
+    console.log('🔑 [ClaudeService] Initializing renderer Claude service (IPC proxy)...')
+    console.log('✅ [ClaudeService] Claude service initialized - will use IPC for all operations')
   }
 
   private resetRateLimitIfNeeded(): void {
@@ -105,117 +81,6 @@ export class ClaudeService {
   }
 
 
-  private parseTextBlocks(
-    responseText: string,
-    leadData: Record<string, unknown>
-  ): ClaudeResponse {
-    console.log('🔨 [ClaudeService] Parsing text blocks from response')
-    console.log('📜 [ClaudeService] Full response text:')
-    console.log(responseText)
-    console.log('📏 [ClaudeService] Response length:', responseText.length, 'characters')
-    
-    // Check if response contains the delimiter at all
-    const delimiterCount = (responseText.match(/---BLOCK---/g) || []).length
-    console.log('🔍 [ClaudeService] Found', delimiterCount, 'occurrences of ---BLOCK--- delimiter')
-    
-    // Split by the delimiter
-    const blocks = responseText.split('---BLOCK---').filter(block => block.trim())
-    console.log('📦 [ClaudeService] Found', blocks.length, 'blocks after splitting')
-    
-    // Log each block for debugging
-    blocks.forEach((block, index) => {
-      console.log(`📄 [ClaudeService] Block ${index + 1} (${block.length} chars):`, block.substring(0, 100) + (block.length > 100 ? '...' : ''))
-    })
-    
-    if (blocks.length !== 7) {
-      console.error('❌ [ClaudeService] Block count mismatch!')
-      console.log('Expected: 7 blocks')
-      console.log('Received:', blocks.length, 'blocks')
-      console.log('Raw response preview (first 1000 chars):', responseText.substring(0, 1000))
-      console.log('Full raw response:', responseText)
-      
-      // If we only got 1 block, check if it's JSON format
-      if (blocks.length === 1) {
-        console.warn('⚠️ [ClaudeService] Only 1 block found. Checking if response is JSON...')
-        
-        try {
-          // Try to parse as JSON
-          const jsonResponse = JSON.parse(responseText)
-          console.log('🔄 [ClaudeService] Response is in JSON format. Converting to expected format...')
-          
-          // Check if it has the expected snippet fields
-          if (jsonResponse.snippet1 && jsonResponse.snippet2) {
-            console.log('✅ [ClaudeService] Found snippet fields in JSON. Using JSON response directly.')
-            
-            // Return the JSON response as-is since it already has the right structure
-            return {
-              email: String(jsonResponse.email || leadData.email || ''),
-              first_name: String(jsonResponse.first_name || leadData.first_name || ''),
-              last_name: String(jsonResponse.last_name || leadData.last_name || ''),
-              company: String(jsonResponse.company || leadData.company || ''),
-              title: String(jsonResponse.title || leadData.title || ''),
-              linkedin_url: String(jsonResponse.linkedin_url || leadData.linkedin_url || ''),
-              tags: String(jsonResponse.tags || leadData.tags || ''),
-              industry: String(jsonResponse.industry || leadData.industry || 'Technology'),
-              snippet1: String(jsonResponse.snippet1 || ''),
-              snippet2: ensureHtml(jsonResponse.snippet2),
-              snippet3: String(jsonResponse.snippet3 || ''),
-              snippet4: ensureHtml(jsonResponse.snippet4),
-              snippet5: ensureHtml(jsonResponse.snippet5),
-              snippet6: ensureHtml(jsonResponse.snippet6),
-              snippet7: ensureHtml(jsonResponse.snippet7),
-            }
-          }
-        } catch {
-          console.log('🚫 [ClaudeService] Response is not valid JSON either')
-        }
-      }
-      
-      throw new ClaudeApiError(
-        `Expected 7 content blocks with ---BLOCK--- delimiters, but received ${blocks.length}. Check console for full response.`,
-        'content',
-        true
-      )
-    }
-
-    // Extract lead data from the provided leadData parameter
-    const email = String(leadData.email || '')
-    const firstName = String(leadData.first_name || leadData.firstName || '')
-    const lastName = String(leadData.last_name || leadData.lastName || '')
-    const company = String(leadData.company || '')
-    const title = String(leadData.title || '')
-    const linkedinUrl = String(leadData.linkedin_url || leadData.linkedin || '')
-    const industry = String(leadData.industry || 'Technology')
-    const tags = String(leadData.tags || '')
-
-    // Parse each block
-    const snippet1 = blocks[0].trim() // Subject line (plain text)
-    const snippet2 = textToHtml(blocks[1].trim()) // Day 1 Email (convert to HTML)
-    const snippet3 = blocks[2].trim() // LinkedIn message (plain text)
-    const snippet4 = textToHtml(blocks[3].trim()) // Day 5 Bump (convert to HTML)
-    const snippet5 = textToHtml(blocks[4].trim()) // Day 9-10 Follow-up (convert to HTML)
-    const snippet6 = textToHtml(blocks[5].trim()) // Day 13 Bump (convert to HTML)
-    const snippet7 = textToHtml(blocks[6].trim()) // Day 20 Breakup (convert to HTML)
-
-    return {
-      email,
-      first_name: firstName,
-      last_name: lastName,
-      company,
-      title,
-      linkedin_url: linkedinUrl,
-      tags,
-      industry,
-      snippet1,
-      snippet2,
-      snippet3,
-      snippet4,
-      snippet5,
-      snippet6,
-      snippet7,
-    }
-  }
-
   async generateContent(
     prompt: string,
     leadData: Record<string, unknown>,
@@ -223,183 +88,52 @@ export class ClaudeService {
     systemPrompt?: string,
     fileIds?: string[]
   ): Promise<ClaudeResponse> {
-    console.log('🤖 [ClaudeService] Starting API call with model:', modelId)
+    console.log('🤖 [ClaudeService] Starting content generation via IPC')
     console.log('📝 [ClaudeService] Prompt length:', prompt.length, 'characters')
-    console.log('⏱️ [ClaudeService] Request count before call:', this.requestCount)
-    
+    console.log('🔧 [ClaudeService] Model:', modelId)
+
     const startTime = Date.now()
-    
+
     try {
       await this.checkRateLimit()
       console.log('✅ [ClaudeService] Rate limit check passed')
 
-      console.log('🚀 [ClaudeService] Making API call to Claude...')
-      
-      // Build message content - start with text
-      const messageContent: any[] = [
-        {
-          type: 'text',
-          text: prompt
-        }
-      ]
+      console.log('🚀 [ClaudeService] Making IPC call to main process...')
 
-      // Add file references if provided
-      if (fileIds && fileIds.length > 0) {
-        console.log('📎 [ClaudeService] Adding file references:', fileIds)
-        fileIds.forEach(fileId => {
-          // Determine content type based on file ID or file metadata
-          // For now, we'll default to image since most uploads are images
-          messageContent.push({
-            type: 'image',
-            source: {
-              type: 'file',
-              file_id: fileId
-            }
-          })
-        })
-      }
+      // Use IPC to generate content in main process
+      const response = await window.api.claude.generateContent({
+        prompt,
+        leadData,
+        modelId,
+        systemPrompt,
+        fileIds,
+        maxRetries: 3
+      })
 
-      const apiCall: any = {
-        model: modelId,
-        max_tokens: 4000,
-        temperature: 0.7,
-        messages: [
-          {
-            role: 'user',
-            content: messageContent,
-          },
-        ],
-      }
-
-      // Add system prompt if provided
-      if (systemPrompt) {
-        apiCall.system = systemPrompt
-        console.log('📋 [ClaudeService] Using system prompt:', systemPrompt.length, 'characters')
-      }
-
-      const response = await this.client.messages.create(apiCall)
-      
       const duration = Date.now() - startTime
-      console.log('📨 [ClaudeService] Received response from Claude API in', duration, 'ms')
-      console.log('📊 [ClaudeService] Usage info:', response.usage)
+      console.log('📨 [ClaudeService] Received response from main process in', duration, 'ms')
 
-      const content = response.content[0]
-      console.log('📄 [ClaudeService] Response type:', content.type)
-      if (content.type !== 'text') {
+      if (!response.success) {
         throw new ClaudeApiError(
-          'Unexpected response format from Claude API',
-          'content',
+          response.error || 'Content generation failed through IPC',
+          'unknown',
           true
         )
       }
-      
-      console.log('📏 [ClaudeService] Response text length:', content.text.length, 'characters')
-      console.log('🔍 [ClaudeService] First 200 chars of response:', content.text.substring(0, 200))
 
-      // Parse text blocks response
-      const parsedResponse = this.parseTextBlocks(content.text, leadData)
-      console.log('✂️ [ClaudeService] Parsed into', Object.keys(parsedResponse).length, 'fields')
-
-      // Validate required fields
-      const requiredSnippets = [
-        'snippet1',
-        'snippet2',
-        'snippet3',
-        'snippet4',
-        'snippet5',
-        'snippet6',
-        'snippet7',
-      ]
-
-      for (const field of requiredSnippets) {
-        if (!parsedResponse[field as keyof ClaudeResponse]) {
-          console.error(`❌ [ClaudeService] Missing required field: ${field}`)
-          console.log('📦 [ClaudeService] Available fields:', Object.keys(parsedResponse))
-          throw new ClaudeApiError(
-            `Missing required field: ${field}`,
-            'content',
-            true
-          )
-        }
-      }
-      
-      console.log('✅ [ClaudeService] All required fields present, returning response')
-      return parsedResponse
+      console.log('✅ [ClaudeService] Content generation successful via IPC')
+      return response.data
     } catch (error) {
       console.error('💥 [ClaudeService] Error occurred:', error)
+
+      // If it's already a ClaudeApiError, re-throw it
       if (error instanceof ClaudeApiError) {
         throw error
       }
 
-      if (error instanceof Anthropic.APIError) {
-        console.error('🚨 [ClaudeService] Anthropic API Error:', error.status, error.message)
-        console.error('🔍 [ClaudeService] Error details:', error)
-        
-        if (error.status === 429) {
-          throw new ClaudeApiError(
-            'Rate limit exceeded. Please wait before trying again.',
-            'rate_limit',
-            true
-          )
-        } else if (error.status === 401) {
-          throw new ClaudeApiError(
-            'Invalid API key. Please check your CLAUDE_API_KEY configuration.',
-            'auth',
-            false
-          )
-        } else if (error.status === 403) {
-          throw new ClaudeApiError(
-            'Access forbidden. You may not have access to this model or have exceeded your quota.',
-            'auth',
-            false
-          )
-        } else if (error.status === 400) {
-          // Check if it's a model-specific error
-          if (error.message?.includes('model') || error.message?.includes('Model')) {
-            throw new ClaudeApiError(
-              `Model error: ${error.message}. The selected model may not be available or supported.`,
-              'content',
-              false
-            )
-          } else {
-            throw new ClaudeApiError(
-              `Bad request: ${error.message}`,
-              'content',
-              false
-            )
-          }
-        } else if (error.status === 404) {
-          throw new ClaudeApiError(
-            'Model not found. The selected model may not exist or you may not have access to it.',
-            'content',
-            false
-          )
-        } else if (error.status >= 500) {
-          throw new ClaudeApiError(
-            'Claude API server error. Please try again later.',
-            'network',
-            true
-          )
-        } else {
-          throw new ClaudeApiError(
-            `Claude API error (${error.status}): ${error.message}`,
-            'unknown',
-            true
-          )
-        }
-      }
-
-      // Network or other errors
-      if (error instanceof Error && error.message.includes('network')) {
-        throw new ClaudeApiError(
-          'Network error. Please check your connection and try again.',
-          'network',
-          true
-        )
-      }
-
+      // Convert other errors to ClaudeApiError
       throw new ClaudeApiError(
-        `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `Content generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         'unknown',
         true
       )

@@ -297,7 +297,10 @@ export function ContentGeneration({
 
       // First check localStorage (immediate availability)
       const localStorageKey = getLocalStorageKey(lead)
-      console.log('🔍 [ContentGeneration] Checking localStorage with key:', localStorageKey)
+      console.log(
+        '🔍 [ContentGeneration] Checking localStorage with key:',
+        localStorageKey
+      )
       const storedContent = localStorage.getItem(localStorageKey)
 
       if (storedContent) {
@@ -313,7 +316,12 @@ export function ContentGeneration({
 
       // Then check database for persistent storage
       const dbLeadId = String(lead.id)
-      console.log('🔄 [ContentGeneration] Checking database with lead ID:', dbLeadId, 'Type:', typeof lead.id)
+      console.log(
+        '🔄 [ContentGeneration] Checking database with lead ID:',
+        dbLeadId,
+        'Type:',
+        typeof lead.id
+      )
 
       const existingContent =
         await contentGenerationService.getLeadContent(dbLeadId)
@@ -324,7 +332,9 @@ export function ContentGeneration({
       )
 
       if (existingContent) {
-        console.log('✅ [ContentGeneration] Content found in database, setting to state')
+        console.log(
+          '✅ [ContentGeneration] Content found in database, setting to state'
+        )
         setContent(existingContent)
         onContentUpdate?.(existingContent)
 
@@ -335,7 +345,10 @@ export function ContentGeneration({
           generatedAt: new Date().toISOString(),
         }
         localStorage.setItem(localStorageKey, JSON.stringify(dataToStore))
-        console.log('💾 [ContentGeneration] Synced database content to localStorage with key:', localStorageKey)
+        console.log(
+          '💾 [ContentGeneration] Synced database content to localStorage with key:',
+          localStorageKey
+        )
 
         // Update status to 'drafted' if content exists but lead status is still 'imported'
         if (lead.status === 'imported') {
@@ -346,7 +359,10 @@ export function ContentGeneration({
           onStatusUpdate?.(lead.id, 'drafted')
         }
       } else {
-        console.log('❌ [ContentGeneration] No content found in database for lead:', lead.id)
+        console.log(
+          '❌ [ContentGeneration] No content found in database for lead:',
+          lead.id
+        )
       }
     }
 
@@ -855,7 +871,7 @@ Dan`
         originalId: lead.id,
         parsedId: numericId,
         validNumericId,
-        willPersistToDb: !!validNumericId
+        willPersistToDb: !!validNumericId,
       })
 
       const result = await contentGenerationService.generateForLead(
@@ -902,7 +918,10 @@ Dan`
           generatedAt: new Date().toISOString(),
         }
         localStorage.setItem(localStorageKey, JSON.stringify(dataToStore))
-        console.log('💾 [ContentGeneration] Content saved to localStorage with key:', localStorageKey)
+        console.log(
+          '💾 [ContentGeneration] Content saved to localStorage with key:',
+          localStorageKey
+        )
       } else {
         console.error('❌ Generation failed:', result.error)
         setError(result.error || 'Failed to generate content')
@@ -1220,7 +1239,7 @@ Dan`
                 </span>
               )}
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {fileAttachments.map((file) => (
                 <div
                   key={file.id}
@@ -1475,8 +1494,6 @@ Dan`
     setIsEditingSystemPrompt(false)
   }
 
-
-
   const startEditing = (snippetKey: string) => {
     setEditingSnippet(snippetKey)
     // Edit HTML directly with ContentEditable
@@ -1510,22 +1527,34 @@ Dan`
       generatedAt: new Date().toISOString(),
     }
     localStorage.setItem(localStorageKey, JSON.stringify(data))
-    console.log('💾 [ContentGeneration] Edit saved to localStorage with key:', localStorageKey)
+    console.log(
+      '💾 [ContentGeneration] Edit saved to localStorage with key:',
+      localStorageKey
+    )
 
     // Also persist to database for long-term storage if we have a valid numeric ID
     const numericId = parseInt(String(lead.id))
     if (Number.isFinite(numericId)) {
-      contentStorage.persistContentToStorage(
-        String(numericId),
-        updatedContent,
-        1 // touchpoint number
-      ).then(() => {
-        console.log('✅ Content persisted to database for lead ID:', numericId)
-      }).catch((error) => {
-        console.error('Failed to persist to database:', error)
-      })
+      contentStorage
+        .persistContentToStorage(
+          String(numericId),
+          updatedContent,
+          1 // touchpoint number
+        )
+        .then(() => {
+          console.log(
+            '✅ Content persisted to database for lead ID:',
+            numericId
+          )
+        })
+        .catch((error) => {
+          console.error('Failed to persist to database:', error)
+        })
     } else {
-      console.log('⚠️ Cannot persist to database - lead has temporary ID:', lead.id)
+      console.log(
+        '⚠️ Cannot persist to database - lead has temporary ID:',
+        lead.id
+      )
     }
 
     setEditingSnippet(null)
@@ -1779,7 +1808,10 @@ Dan`
                     // Clear localStorage
                     const localStorageKey = getLocalStorageKey(lead)
                     localStorage.removeItem(localStorageKey)
-                    console.log('🗑️ [ContentGeneration] Cleared localStorage with key:', localStorageKey)
+                    console.log(
+                      '🗑️ [ContentGeneration] Cleared localStorage with key:',
+                      localStorageKey
+                    )
 
                     // Clear database content using service
                     const dbLeadId = String(lead.id)
