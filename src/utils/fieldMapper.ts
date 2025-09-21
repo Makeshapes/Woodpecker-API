@@ -2,6 +2,8 @@
  * Utility functions for mapping CSV fields to Woodpecker standard fields
  */
 
+import type { LeadData } from '@/types/lead'
+
 // Standard Woodpecker field names
 export type WoodpeckerField =
   | 'first_name'
@@ -231,14 +233,15 @@ export function isNameField(fieldName: string): boolean {
  * Map CSV row data to Lead format
  */
 export function mapCsvRowToLead(
-  rowData: Record<string, any>,
+  rowData: Record<string, string>,
   columnMapping?: Record<string, string>
-): Record<string, any> {
-  const lead: Record<string, any> = {
+): LeadData {
+  const lead: LeadData = {
+    id: '',
     status: 'imported',
   }
 
-  const additionalFields: Record<string, any> = {}
+  const additionalFields: Record<string, string> = {}
   let hasNameField = false
 
   // Process each field in the row
@@ -250,7 +253,9 @@ export function mapCsvRowToLead(
 
     if (mappedField && mappedField in lead) {
       // Use manual mapping
-      ;(lead as any)[mappedField] = value
+      ;(lead as LeadData & Record<string, string | boolean | undefined>)[
+        mappedField
+      ] = value
     } else {
       // Try automatic mapping
       const autoMappedField = mapFieldName(csvField)
@@ -269,7 +274,9 @@ export function mapCsvRowToLead(
           // If we already parsed a name field, don't override with individual name fields
           continue
         } else {
-          ;(lead as any)[autoMappedField] = value
+          ;(lead as LeadData & Record<string, string | boolean | undefined>)[
+            autoMappedField
+          ] = value
         }
       } else {
         // No mapping found, store in additional fields
