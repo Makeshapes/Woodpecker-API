@@ -240,7 +240,7 @@ export class TemplateService {
     //   return false // Only reject if extremely long
     // }
 
-    // Check HTML snippets contain div tags
+    // Check HTML snippets contain proper HTML formatting (div, ul, or br tags)
     const htmlSnippets = [
       'snippet2',
       'snippet4',
@@ -250,8 +250,12 @@ export class TemplateService {
     ]
     for (const snippetKey of htmlSnippets) {
       const value = content[snippetKey]
-      if (typeof value === 'string' && !value.includes('<div>')) {
-        return false
+      if (typeof value === 'string') {
+        // Accept content with div tags, ul tags, or br tags (valid HTML formatting)
+        const hasValidHtml = value.includes('<div>') || value.includes('<ul>') || value.includes('<br')
+        if (!hasValidHtml) {
+          return false
+        }
       }
     }
 

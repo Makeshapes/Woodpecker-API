@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { textToHtml, ensureHtml } from '@/utils/htmlConverter'
 
 export interface ClaudeResponse {
   email: string
@@ -103,15 +104,6 @@ export class ClaudeService {
     this.requestCount++
   }
 
-  private convertTextToHtml(text: string): string {
-    // Convert plain text to HTML with <div> tags
-    return text
-      .split('\n\n')
-      .map((paragraph) => paragraph.trim())
-      .filter((paragraph) => paragraph.length > 0)
-      .map((paragraph) => `<div>${paragraph}</div>`)
-      .join('<div><br></div>')
-  }
 
   private parseTextBlocks(
     responseText: string,
@@ -166,12 +158,12 @@ export class ClaudeService {
               tags: String(jsonResponse.tags || leadData.tags || ''),
               industry: String(jsonResponse.industry || leadData.industry || 'Technology'),
               snippet1: String(jsonResponse.snippet1 || ''),
-              snippet2: jsonResponse.snippet2.startsWith('<div>') ? jsonResponse.snippet2 : this.convertTextToHtml(jsonResponse.snippet2),
+              snippet2: ensureHtml(jsonResponse.snippet2),
               snippet3: String(jsonResponse.snippet3 || ''),
-              snippet4: jsonResponse.snippet4.startsWith('<div>') ? jsonResponse.snippet4 : this.convertTextToHtml(jsonResponse.snippet4),
-              snippet5: jsonResponse.snippet5.startsWith('<div>') ? jsonResponse.snippet5 : this.convertTextToHtml(jsonResponse.snippet5),
-              snippet6: jsonResponse.snippet6.startsWith('<div>') ? jsonResponse.snippet6 : this.convertTextToHtml(jsonResponse.snippet6),
-              snippet7: jsonResponse.snippet7.startsWith('<div>') ? jsonResponse.snippet7 : this.convertTextToHtml(jsonResponse.snippet7),
+              snippet4: ensureHtml(jsonResponse.snippet4),
+              snippet5: ensureHtml(jsonResponse.snippet5),
+              snippet6: ensureHtml(jsonResponse.snippet6),
+              snippet7: ensureHtml(jsonResponse.snippet7),
             }
           }
         } catch {
@@ -198,12 +190,12 @@ export class ClaudeService {
 
     // Parse each block
     const snippet1 = blocks[0].trim() // Subject line (plain text)
-    const snippet2 = this.convertTextToHtml(blocks[1].trim()) // Day 1 Email (convert to HTML)
+    const snippet2 = textToHtml(blocks[1].trim()) // Day 1 Email (convert to HTML)
     const snippet3 = blocks[2].trim() // LinkedIn message (plain text)
-    const snippet4 = this.convertTextToHtml(blocks[3].trim()) // Day 5 Bump (convert to HTML)
-    const snippet5 = this.convertTextToHtml(blocks[4].trim()) // Day 9-10 Follow-up (convert to HTML)
-    const snippet6 = this.convertTextToHtml(blocks[5].trim()) // Day 13 Bump (convert to HTML)
-    const snippet7 = this.convertTextToHtml(blocks[6].trim()) // Day 20 Breakup (convert to HTML)
+    const snippet4 = textToHtml(blocks[3].trim()) // Day 5 Bump (convert to HTML)
+    const snippet5 = textToHtml(blocks[4].trim()) // Day 9-10 Follow-up (convert to HTML)
+    const snippet6 = textToHtml(blocks[5].trim()) // Day 13 Bump (convert to HTML)
+    const snippet7 = textToHtml(blocks[6].trim()) // Day 20 Breakup (convert to HTML)
 
     return {
       email,

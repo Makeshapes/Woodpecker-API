@@ -1,6 +1,7 @@
 import type { LeadData } from './templateService'
 import type { ClaudeResponse } from './claudeService'
 import { detectTimezone } from '@/utils/timezoneDetector'
+import { ensureHtml } from '@/utils/htmlConverter'
 
 export interface EmailTemplate {
   step: number
@@ -205,8 +206,8 @@ All the best,
           content[snippetKey] = subject
         } else {
           // Full email with body (no subject repetition, no footer)
-          content[snippetKey] =
-            `<div>${body.replace(/\n/g, '</div><div>')}</div><div><br></div>`
+          // Use shared converter that handles HTML detection automatically
+          content[snippetKey] = ensureHtml(body)
         }
       } else {
         // For LinkedIn messages, just the body content
@@ -231,6 +232,7 @@ All the best,
 
     return content
   }
+
 
   private substituteVariables(text: string, leadData: LeadData): string {
     let result = text

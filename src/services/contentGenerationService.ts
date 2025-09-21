@@ -274,7 +274,9 @@ export class ContentGenerationService {
 
       // Store in database via IPC
       console.log(
-        '💾 [ContentGenerationService] Persisting content to database'
+        '💾 [ContentGenerationService] Persisting content to database',
+        'leadId:', leadId,
+        'numericLeadId:', numericLeadId
       )
       await this.persistContentToStorage(leadId, content, numericLeadId)
 
@@ -503,7 +505,8 @@ export class ContentGenerationService {
         : leadId
     const success = await contentStorage.persistContentToStorage(
       idForDb,
-      content
+      content,
+      1 // touchpoint number
     )
     if (!success) {
       console.error('Failed to persist content to database')

@@ -34,25 +34,42 @@ export const contentStorage = {
   // Get content for a specific lead
   async getLeadContent(leadId: string): Promise<ClaudeResponse | null> {
     try {
+      console.log('🔍 [contentStorage] Getting content for lead:', leadId)
+
       const response = await window.api.content.getByLead(parseInt(leadId))
+
+      console.log('🔍 [contentStorage] Database response:', {
+        hasError: isApiError(response),
+        isArray: Array.isArray(response),
+        responseLength: Array.isArray(response) ? response.length : 0,
+        fullResponse: response
+      })
 
       if (isApiError(response)) {
         console.error('Error getting lead content:', response.error)
         return null
       }
 
-      // Ensure response.data exists and is an array before accessing [0]
+      // The IPC call returns the array directly, not wrapped in { data: [...] }
       if (
-        !response.data ||
-        !Array.isArray(response.data) ||
-        response.data.length === 0
+        !Array.isArray(response) ||
+        response.length === 0
       ) {
+        console.log('🔍 [contentStorage] No content found in database for lead:', leadId)
         return null
       }
 
       // Return the first content record if available
-      const contentRecord = response.data[0]
-      return contentRecord ? convertRecordToClaudeResponse(contentRecord) : null
+      const contentRecord = response[0]
+      const claudeResponse = contentRecord ? convertRecordToClaudeResponse(contentRecord) : null
+
+      console.log('✅ [contentStorage] Content retrieved from database:', {
+        leadId,
+        hasContent: !!claudeResponse,
+        contentKeys: claudeResponse ? Object.keys(claudeResponse) : []
+      })
+
+      return claudeResponse
     } catch (error) {
       console.error('Error getting lead content:', error)
       return null
@@ -94,19 +111,43 @@ export const contentStorage = {
         )
         return false
       }
+
+      console.log('💾 [contentStorage] Persisting content to database:', {
+        leadId: numericId,
+        touchpoint,
+        hasContent: !!content,
+        contentKeys: content ? Object.keys(content) : []
+      })
+
       const contentRecord = convertClaudeResponseToRecord(
         numericId,
         content,
         touchpoint
       )
 
+      console.log('💾 [contentStorage] Content record prepared:', {
+        lead_id: contentRecord.lead_id,
+        touchpoint_number: contentRecord.touchpoint_number,
+        content_type: contentRecord.content_type,
+        status: contentRecord.status,
+        contentLength: contentRecord.content.length
+      })
+
       const response = await window.api.content.create(contentRecord)
+
+      console.log('💾 [contentStorage] Database save response:', {
+        success: !isApiError(response),
+        isError: isApiError(response),
+        responseData: response,
+        savedContentId: response.data?.id
+      })
 
       if (isApiError(response)) {
         console.error('Error persisting content:', response.error)
         return false
       }
 
+      console.log('✅ [contentStorage] Content successfully persisted to database')
       return true
     } catch (error) {
       console.error('Error persisting content:', error)

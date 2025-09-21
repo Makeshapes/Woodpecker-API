@@ -6,13 +6,26 @@ import type { GeneratedContentRecord, ContentFilters } from '../../database/dal'
 /**
  * Setup IPC handlers for generated_content table operations
  */
-export function setupGeneratedContentHandlers(): void {
+export function setupGeneratedContentHandlers(appDataPath?: string): void {
   // Create generated content
   ipcMain.handle('ipc:content:create', async (_, data: Omit<GeneratedContentRecord, 'id' | 'created_at' | 'updated_at'>) => {
     try {
       validateInput(data, ['lead_id', 'touchpoint_number', 'content_type']);
-      return GeneratedContentDAL.create(data);
+      console.log(`💾 [IPC] Creating content for lead ID: ${data.lead_id}`, {
+        lead_id: data.lead_id,
+        touchpoint_number: data.touchpoint_number,
+        content_type: data.content_type,
+        status: data.status,
+        contentLength: data.content?.length || 0
+      });
+      const result = GeneratedContentDAL.create(data);
+      console.log(`✅ [IPC] Content created successfully:`, {
+        id: result.id,
+        lead_id: result.lead_id
+      });
+      return result;
     } catch (error) {
+      console.error(`❌ [IPC] Error creating content:`, error);
       return handleIpcError(error, 'content:create');
     }
   });
@@ -21,8 +34,15 @@ export function setupGeneratedContentHandlers(): void {
   ipcMain.handle('ipc:content:getByLead', async (_, leadId: number) => {
     try {
       validateInput({ leadId }, ['leadId']);
-      return GeneratedContentDAL.getByLead(leadId);
+      console.log(`🔍 [IPC] Getting content for lead ID: ${leadId}`);
+      const result = GeneratedContentDAL.getByLead(leadId);
+      console.log(`🔍 [IPC] Query result for lead ${leadId}:`, {
+        found: result.length,
+        data: result
+      });
+      return result;
     } catch (error) {
+      console.error(`❌ [IPC] Error getting content for lead ${leadId}:`, error);
       return handleIpcError(error, 'content:getByLead');
     }
   });

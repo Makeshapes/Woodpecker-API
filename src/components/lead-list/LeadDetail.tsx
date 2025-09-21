@@ -27,7 +27,7 @@ import {
 } from '@/utils/woodpeckerFormatter'
 import type { LeadData, ColumnMapping, LeadStatus } from '@/types/lead'
 import { getStandardFields } from '@/utils/fieldMapper'
-import { Trash2, Copy, Download } from 'lucide-react'
+import { Trash2, Copy, Download, ChevronDown, ChevronUp } from 'lucide-react'
 import { useState, useEffect, useMemo, useCallback, memo } from 'react'
 import type { ClaudeResponse } from '@/services/claudeService'
 import ConversionButton from '@/components/content-generation/ConversionButton'
@@ -37,6 +37,13 @@ import {
 } from '@/utils/contentConverter'
 import type { GeneratedContent } from '@/utils/woodpeckerFormatter'
 import { Link } from 'react-router-dom'
+
+// Utility function for consistent localStorage key generation
+function getLocalStorageKey(lead: LeadData): string {
+  // Use email if available, otherwise use lead ID
+  const identifier = lead.email || lead.id
+  return `lead_content_${btoa(String(identifier)).replace(/[/+=]/g, '')}`
+}
 
 interface LeadDetailProps {
   lead: LeadData
@@ -63,6 +70,7 @@ const LeadDetail = memo(function LeadDetail({
   const [selectedCampaignName, setSelectedCampaignName] = useState<string>('')
   const [isExporting, setIsExporting] = useState(false)
   const [woodpeckerService] = useState(() => new WoodpeckerService())
+  const [showAdditionalInfo, setShowAdditionalInfo] = useState(false)
 
   // ConversionButton state
   const [plainTextContent, setPlainTextContent] = useState<PlainTextContent>({
@@ -94,22 +102,23 @@ const LeadDetail = memo(function LeadDetail({
     return { woodpeckerFields: woodpecker, additionalData: additional }
   }, [lead])
 
-  // Load generated content when modal opens
+  // Load generated content when modal opens - for ALL statuses to retain content
   useEffect(() => {
-    if (open && (lead.status === 'drafted' || lead.status === 'exported')) {
+    if (open) {
       const loadContent = () => {
-        const leadId = btoa(String(woodpeckerFields.email || lead.id)).replace(
-          /[/+=]/g,
-          ''
-        )
-        const storedContent = localStorage.getItem(`lead_content_${leadId}`)
+        const localStorageKey = getLocalStorageKey(lead)
+        console.log('🔍 [LeadDetail] Loading content with key:', localStorageKey)
+        const storedContent = localStorage.getItem(localStorageKey)
         if (storedContent) {
           try {
             const parsed = JSON.parse(storedContent)
+            console.log('✅ [LeadDetail] Content loaded from localStorage')
             setGeneratedContent(parsed)
           } catch (error) {
             console.error('Failed to parse stored content:', error)
           }
+        } else {
+          console.log('❌ [LeadDetail] No content found in localStorage')
         }
       }
 
@@ -119,7 +128,7 @@ const LeadDetail = memo(function LeadDetail({
       const interval = setInterval(loadContent, 2000)
       return () => clearInterval(interval)
     }
-  }, [open, lead.status, lead.id, woodpeckerFields.email])
+  }, [open, lead.id, woodpeckerFields.email])
 
   // Convert generated content to plain text when available
   useEffect(() => {
@@ -135,15 +144,14 @@ const LeadDetail = memo(function LeadDetail({
       console.log('✅ [LeadDetail] Conversion to HTML completed')
       setGeneratedContent(htmlContent)
 
-      // Store the updated content
-      const leadId = btoa(String(woodpeckerFields.email || lead.id)).replace(
-        /[/+=]/g,
-        ''
-      )
-      localStorage.setItem(
-        `lead_content_${leadId}`,
-        JSON.stringify(htmlContent)
-      )
+      // Store the updated content in localStorage
+      const localStorageKey = getLocalStorageKey(lead)
+      const dataToStore = {
+        ...htmlContent,
+        generatedAt: new Date().toISOString(),
+      }
+      localStorage.setItem(localStorageKey, JSON.stringify(dataToStore))
+      console.log('💾 [LeadDetail] Content saved to localStorage with key:', localStorageKey)
 
       // Update lead status if callback provided
       onStatusUpdate?.(lead.id, 'approved')
@@ -364,7 +372,7 @@ const LeadDetail = memo(function LeadDetail({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="min-w-[800px] overflow-y-auto">
+      <SheetContent side="right" className="min-w-[700px] overflow-y-auto">
         <SheetHeader className="fixed bg-background w-full z-10 border-b">
           <div className="flex items-center justify-between">
             <div>
@@ -413,59 +421,77 @@ const LeadDetail = memo(function LeadDetail({
             onContentUpdate={handleContentUpdate}
           />
 
-          {/* Lead Information */}
+          {/* Lead Information - Collapsible */}
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Lead Information</CardTitle>
-              <CardDescription>All lead data from your import</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid md:grid-cols-2 gap-4">
-                {/* Woodpecker Standard Fields */}
-                {Object.entries(woodpeckerFields).map(([field, value]) => (
-                  <div key={field} className="space-y-1">
-                    <label className="text-sm font-medium text-muted-foreground capitalize">
-                      {field
-                        .replace('_', ' ')
-                        .replace(/\b\w/g, (l) => l.toUpperCase())}
-                    </label>
-                    <div className="text-sm border rounded p-2 bg-muted/50">
-                      {(field === 'linkedin_url' || field === 'website') &&
-                      value ? (
-                        <a
-                          href={
-                            value.startsWith('http')
-                              ? value
-                              : `https://${value}`
-                          }
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-800 underline break-all inline-block max-w-full"
-                        >
-                          {value}
-                        </a>
-                      ) : (
-                        value || '-'
-                      )}
-                    </div>
-                  </div>
-                ))}
-                {/* Additional Custom Fields */}
-                {Object.entries(additionalData).map(([field, value]) => (
-                  <div key={field} className="space-y-1">
-                    <label className="text-sm font-medium text-muted-foreground">
-                      {field}
-                      <Badge variant="outline" className="ml-2 text-xs">
-                        Custom
-                      </Badge>
-                    </label>
-                    <div className="text-sm border rounded p-2 bg-muted/50 max-h-24 overflow-y-auto">
-                      {value || '-'}
-                    </div>
-                  </div>
-                ))}
+            <CardHeader
+              className="cursor-pointer select-none"
+              onClick={() => setShowAdditionalInfo(!showAdditionalInfo)}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg">Lead Information</CardTitle>
+                  <CardDescription>
+                    All lead data from your import
+                  </CardDescription>
+                </div>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                  {showAdditionalInfo ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </Button>
               </div>
-            </CardContent>
+            </CardHeader>
+            {showAdditionalInfo && (
+              <CardContent>
+                <div className="grid md:grid-cols-2 gap-4">
+                  {/* Woodpecker Standard Fields */}
+                  {Object.entries(woodpeckerFields).map(([field, value]) => (
+                    <div key={field} className="space-y-1">
+                      <label className="text-sm font-medium text-muted-foreground capitalize">
+                        {field
+                          .replace('_', ' ')
+                          .replace(/\b\w/g, (l) => l.toUpperCase())}
+                      </label>
+                      <div className="text-sm border rounded p-2 bg-muted/50">
+                        {(field === 'linkedin_url' || field === 'website') &&
+                        value ? (
+                          <a
+                            href={
+                              value.startsWith('http')
+                                ? value
+                                : `https://${value}`
+                            }
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-800 underline break-all inline-block max-w-full"
+                          >
+                            {value}
+                          </a>
+                        ) : (
+                          value || '-'
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {/* Additional Custom Fields */}
+                  {Object.entries(additionalData).map(([field, value]) => (
+                    <div key={field} className="space-y-1">
+                      <label className="text-sm font-medium text-muted-foreground">
+                        {field}
+                        <Badge variant="outline" className="ml-2 text-xs">
+                          Custom
+                        </Badge>
+                      </label>
+                      <div className="text-sm border rounded p-2 bg-muted/50 max-h-24 overflow-y-auto">
+                        {value || '-'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            )}
           </Card>
 
           {/* JSON Preview Section */}

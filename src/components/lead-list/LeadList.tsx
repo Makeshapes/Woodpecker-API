@@ -215,8 +215,8 @@ const LeadList = memo(function LeadList({
             <option value="all">All Status</option>
             <option value="imported">Imported</option>
             <option value="drafted">Drafted</option>
-            <option value="exported">Exported</option>
             <option value="approved">Approved</option>
+            <option value="exported">Exported</option>
             <option value="deleted">Deleted</option>
           </select>
         </div>

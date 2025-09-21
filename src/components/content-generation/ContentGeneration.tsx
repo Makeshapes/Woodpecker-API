@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { ContentEditable } from '@/components/ui/content-editable'
+import { htmlToText, ensureHtml } from '@/utils/htmlConverter'
 import {
   Card,
   CardContent,
@@ -42,6 +44,7 @@ import {
   contentGenerationService,
   type GenerationMode,
 } from '@/services/contentGenerationService'
+import { contentStorage } from '@/utils/contentStorage'
 import type { LeadData, ColumnMapping } from '@/types/lead'
 import type { ClaudeResponse } from '@/services/claudeService'
 import { createClaudeService } from '@/services/claudeService'
@@ -58,6 +61,13 @@ import {
   convertFromHtmlContent,
 } from '@/utils/contentConverter'
 import PlainTextEditor from './PlainTextEditor'
+
+// Utility function for consistent localStorage key generation
+function getLocalStorageKey(lead: LeadData): string {
+  // Use email if available, otherwise use lead ID
+  const identifier = lead.email || lead.id
+  return `lead_content_${btoa(String(identifier)).replace(/[/+=]/g, '')}`
+}
 
 interface ContentGenerationProps {
   lead: LeadData
@@ -284,18 +294,49 @@ export function ContentGeneration({
         '🔄 [ContentGeneration] Lead changed, loading content for:',
         lead.email || lead.id
       )
+
+      // First check localStorage (immediate availability)
+      const localStorageKey = getLocalStorageKey(lead)
+      console.log('🔍 [ContentGeneration] Checking localStorage with key:', localStorageKey)
+      const storedContent = localStorage.getItem(localStorageKey)
+
+      if (storedContent) {
+        try {
+          const parsed = JSON.parse(storedContent)
+          console.log('🔄 [ContentGeneration] Found content in localStorage')
+          setContent(parsed)
+          onContentUpdate?.(parsed)
+        } catch (error) {
+          console.error('Failed to parse localStorage content:', error)
+        }
+      }
+
+      // Then check database for persistent storage
       const dbLeadId = String(lead.id)
+      console.log('🔄 [ContentGeneration] Checking database with lead ID:', dbLeadId, 'Type:', typeof lead.id)
+
       const existingContent =
         await contentGenerationService.getLeadContent(dbLeadId)
 
       console.log(
-        '🔄 [ContentGeneration] Found existing content:',
+        '🔄 [ContentGeneration] Found existing content in database:',
         !!existingContent
       )
 
       if (existingContent) {
+        console.log('✅ [ContentGeneration] Content found in database, setting to state')
         setContent(existingContent)
         onContentUpdate?.(existingContent)
+
+        // ALWAYS save database content to localStorage to ensure it's available across modal open/close
+        const localStorageKey = getLocalStorageKey(lead)
+        const dataToStore = {
+          ...existingContent,
+          generatedAt: new Date().toISOString(),
+        }
+        localStorage.setItem(localStorageKey, JSON.stringify(dataToStore))
+        console.log('💾 [ContentGeneration] Synced database content to localStorage with key:', localStorageKey)
+
         // Update status to 'drafted' if content exists but lead status is still 'imported'
         if (lead.status === 'imported') {
           console.log(
@@ -304,6 +345,8 @@ export function ContentGeneration({
           )
           onStatusUpdate?.(lead.id, 'drafted')
         }
+      } else {
+        console.log('❌ [ContentGeneration] No content found in database for lead:', lead.id)
       }
     }
 
@@ -803,11 +846,23 @@ Dan`
         '⏳ Calling content generation service with mode:',
         generationMode
       )
+      // Parse the numeric ID - if it's already numeric or can be parsed, use it
+      // Otherwise, this is a temporary ID and content won't persist to DB
+      const numericId = parseInt(String(lead.id))
+      const validNumericId = Number.isFinite(numericId) ? numericId : undefined
+
+      console.log('🔢 [ContentGeneration] Lead ID for database:', {
+        originalId: lead.id,
+        parsedId: numericId,
+        validNumericId,
+        willPersistToDb: !!validNumericId
+      })
+
       const result = await contentGenerationService.generateForLead(
         leadData,
         'email-sequence',
         selectedModel,
-        parseInt(String(lead.id))
+        validNumericId
       )
 
       // Debug: Log the raw result from Claude
@@ -840,12 +895,14 @@ Dan`
         )
         onStatusUpdate?.(lead.id, 'drafted')
 
-        // Save to localStorage for persistence
-        const leadId = String(lead.id)
-        console.log(
-          '💾 Saving to localStorage with key:',
-          `lead_content_${leadId}`
-        )
+        // Save to localStorage for persistence across modal open/close
+        const localStorageKey = getLocalStorageKey(lead)
+        const dataToStore = {
+          ...result.content,
+          generatedAt: new Date().toISOString(),
+        }
+        localStorage.setItem(localStorageKey, JSON.stringify(dataToStore))
+        console.log('💾 [ContentGeneration] Content saved to localStorage with key:', localStorageKey)
       } else {
         console.error('❌ Generation failed:', result.error)
         setError(result.error || 'Failed to generate content')
@@ -1418,72 +1475,13 @@ Dan`
     setIsEditingSystemPrompt(false)
   }
 
-  // Convert plain text to HTML format
-  const convertTextToHtml = (text: string): string => {
-    if (!text) return ''
 
-    // Split by double newlines first (paragraphs)
-    const paragraphs = text.split('\n\n')
-
-    return paragraphs
-      .map((paragraph) => paragraph.trim())
-      .filter((paragraph) => paragraph.length > 0)
-      .map((paragraph) => {
-        // Handle single line breaks within paragraphs
-        const withLineBreaks = paragraph.replace(/\n/g, '<br>')
-        return `<div style="margin-bottom: 16px;">${withLineBreaks}</div>`
-      })
-      .join('')
-  }
-
-  // Extract plain text from HTML (robust, preserves basic line breaks and bullets)
-  const convertHtmlToText = (html: string): string => {
-    if (!html) return ''
-    let text = String(html)
-
-    // Handle our new div format with margin-bottom
-    text = text.replace(
-      /<div\s+style="margin-bottom:\s*16px;">(.*?)<\/div>/gi,
-      '$1\n\n'
-    )
-
-    // Normalize common break tags to newlines
-    text = text.replace(/<(br|BR)\s*\/?>(\s*)/g, '\n')
-
-    // Add newlines after common block-level closing tags
-    text = text.replace(/<\/(p|div|h[1-6]|tr)>/gi, '\n')
-
-    // Lists → bullets
-    text = text.replace(/<li[^>]*>/gi, '• ')
-    text = text.replace(/<\/li>/gi, '\n')
-
-    // Table/section boundaries to newlines
-    text = text.replace(/<\/(ul|ol|table|thead|tbody|tfoot)>/gi, '\n')
-
-    // Strip all remaining tags
-    text = text.replace(/<[^>]+>/g, '')
-
-    // Decode HTML entities using the browser
-    const textarea = document.createElement('textarea')
-    textarea.innerHTML = text
-    text = textarea.value
-
-    // Collapse excessive blank lines and trim
-    text = text
-      .replace(/\n{3,}/g, '\n\n')
-      .replace(/[ \t]+\n/g, '\n')
-      .trim()
-    return text
-  }
 
   const startEditing = (snippetKey: string) => {
     setEditingSnippet(snippetKey)
-    // For HTML snippets, convert to text for easier editing
-    const isHtmlSnippet = SNIPPETS.find((s) => s.key === snippetKey)?.isHtml
+    // Edit HTML directly with ContentEditable
     const raw = content?.[snippetKey as keyof ClaudeResponse] || ''
-    const editValue = isHtmlSnippet
-      ? convertHtmlToText(String(raw))
-      : String(raw)
+    const editValue = ensureHtml(String(raw))
     setEditedContent({
       ...editedContent,
       [snippetKey]: editValue,
@@ -1493,12 +1491,9 @@ Dan`
   const saveEdit = (snippetKey: string) => {
     if (!content) return
 
-    // For HTML snippets, convert text back to HTML for storage
-    const isHtmlSnippet = SNIPPETS.find((s) => s.key === snippetKey)?.isHtml
+    // Since we're editing HTML directly, store the content as-is
     const edited = editedContent[snippetKey as keyof ClaudeResponse]
-    const valueToStore = isHtmlSnippet
-      ? convertTextToHtml(String(edited || ''))
-      : String(edited || '')
+    const valueToStore = ensureHtml(String(edited || ''))
 
     const updatedContent = {
       ...content,
@@ -1508,16 +1503,33 @@ Dan`
     setContent(updatedContent)
     onContentUpdate?.(updatedContent)
 
-    // Update localStorage
-    const leadId = btoa(String(lead.email || lead.id)).replace(/[/+=]/g, '')
+    // Update localStorage with consistent key format
+    const localStorageKey = getLocalStorageKey(lead)
     const data = {
       ...updatedContent,
       generatedAt: new Date().toISOString(),
     }
-    localStorage.setItem(`lead_content_${leadId}`, JSON.stringify(data))
+    localStorage.setItem(localStorageKey, JSON.stringify(data))
+    console.log('💾 [ContentGeneration] Edit saved to localStorage with key:', localStorageKey)
+
+    // Also persist to database for long-term storage if we have a valid numeric ID
+    const numericId = parseInt(String(lead.id))
+    if (Number.isFinite(numericId)) {
+      contentStorage.persistContentToStorage(
+        String(numericId),
+        updatedContent,
+        1 // touchpoint number
+      ).then(() => {
+        console.log('✅ Content persisted to database for lead ID:', numericId)
+      }).catch((error) => {
+        console.error('Failed to persist to database:', error)
+      })
+    } else {
+      console.log('⚠️ Cannot persist to database - lead has temporary ID:', lead.id)
+    }
 
     setEditingSnippet(null)
-    toast.success('Saved to LocalStorage')
+    toast.success('Content saved')
   }
 
   const cancelEdit = () => {
@@ -1622,17 +1634,17 @@ Dan`
         <CardContent className="pt-0">
           {isEditing ? (
             <div className="mt-4">
-              <Textarea
+              <ContentEditable
                 value={String(editedContent[snippet.key] || '')}
-                onChange={(e) =>
+                onChange={(value) =>
                   setEditedContent({
                     ...editedContent,
-                    [snippet.key]: e.target.value,
+                    [snippet.key]: value,
                   })
                 }
-                rows={8}
                 className="min-h-[120px] text-sm"
                 placeholder="Edit the content here..."
+                aria-label={`Edit ${snippet.title}`}
               />
             </div>
           ) : (
@@ -1764,7 +1776,12 @@ Dan`
                       setShowJsonOutput(false)
                     }
 
-                    // Clear localStorage using service
+                    // Clear localStorage
+                    const localStorageKey = getLocalStorageKey(lead)
+                    localStorage.removeItem(localStorageKey)
+                    console.log('🗑️ [ContentGeneration] Cleared localStorage with key:', localStorageKey)
+
+                    // Clear database content using service
                     const dbLeadId = String(lead.id)
                     contentGenerationService.clearLeadContent(dbLeadId)
 
