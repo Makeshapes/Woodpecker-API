@@ -107,7 +107,10 @@ const LeadDetail = memo(function LeadDetail({
     if (open) {
       const loadContent = () => {
         const localStorageKey = getLocalStorageKey(lead)
-        console.log('🔍 [LeadDetail] Loading content with key:', localStorageKey)
+        console.log(
+          '🔍 [LeadDetail] Loading content with key:',
+          localStorageKey
+        )
         const storedContent = localStorage.getItem(localStorageKey)
         if (storedContent) {
           try {
@@ -151,7 +154,10 @@ const LeadDetail = memo(function LeadDetail({
         generatedAt: new Date().toISOString(),
       }
       localStorage.setItem(localStorageKey, JSON.stringify(dataToStore))
-      console.log('💾 [LeadDetail] Content saved to localStorage with key:', localStorageKey)
+      console.log(
+        '💾 [LeadDetail] Content saved to localStorage with key:',
+        localStorageKey
+      )
 
       // Update lead status if callback provided
       onStatusUpdate?.(lead.id, 'approved')
@@ -414,13 +420,6 @@ const LeadDetail = memo(function LeadDetail({
         </SheetHeader>
 
         <div className="space-y-6 px-8 pt-32">
-          <ContentGeneration
-            lead={{ ...lead, ...woodpeckerFields }}
-            columnMapping={columnMapping}
-            onStatusUpdate={onStatusUpdate}
-            onContentUpdate={handleContentUpdate}
-          />
-
           {/* Lead Information - Collapsible */}
           <Card>
             <CardHeader
@@ -493,6 +492,13 @@ const LeadDetail = memo(function LeadDetail({
               </CardContent>
             )}
           </Card>
+
+          <ContentGeneration
+            lead={{ ...lead, ...woodpeckerFields }}
+            columnMapping={columnMapping}
+            onStatusUpdate={onStatusUpdate}
+            onContentUpdate={handleContentUpdate}
+          />
 
           {/* JSON Preview Section */}
         </div>
