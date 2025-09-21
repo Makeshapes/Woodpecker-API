@@ -1,7 +1,7 @@
 {
   "name": "woodpecker-app",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Desktop application for lead management and content generation with Claude AI and Woodpecker integration",
   "author": "Makeshapes <contact@makeshapes.com>",
   "homepage": "https://makeshapes.com",
