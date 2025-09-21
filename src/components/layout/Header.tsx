@@ -2,6 +2,7 @@ import { ThemeToggle } from '../theme-toggle'
 import { Sparkles, AlertTriangle } from 'lucide-react'
 import { Button } from '../ui/button'
 import { toast } from 'sonner'
+import packageJson from '../../../package.json'
 
 export function Header() {
   const handleClearDatabase = async () => {
@@ -76,6 +77,9 @@ export function Header() {
           />
         </div>
         <div className="flex items-center space-x-2">
+          <span className="text-sm text-muted-foreground font-mono">
+            v{packageJson.version}
+          </span>
           <Button
             variant="outline"
             size="sm"

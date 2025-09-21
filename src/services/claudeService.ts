@@ -464,66 +464,76 @@ export class ClaudeService {
 
   // Files API methods
   async uploadFile(file: File): Promise<string> {
-    console.log('📁 [ClaudeService] Uploading file:', file.name, file.size, 'bytes')
-    
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
+    console.log('📁 [ClaudeService] Uploading file via IPC:', file.name, file.size, 'bytes')
 
-      const response = await fetch('https://api.anthropic.com/v1/files', {
-        method: 'POST',
-        headers: {
-          'x-api-key': this.client.apiKey!,
-          'anthropic-version': '2023-06-01',
-          'anthropic-beta': 'files-api-2025-04-14'
-        },
-        body: formData
+    try {
+      // Convert File to ArrayBuffer for IPC transmission
+      const fileBuffer = await file.arrayBuffer()
+
+      // Use IPC to upload file to main process
+      const response = await window.api.claude.uploadFile({
+        fileBuffer,
+        filename: file.name,
+        mimeType: file.type
       })
 
-      if (!response.ok) {
-        const errorData = await response.json()
+      if (!response.success) {
         throw new ClaudeApiError(
-          `File upload failed: ${errorData.error?.message || response.statusText}`,
+          response.error || 'File upload failed through IPC',
           'network',
           true
         )
       }
 
-      const result = await response.json()
-      console.log('✅ [ClaudeService] File uploaded successfully:', result.id)
-      return result.id
+      console.log('✅ [ClaudeService] File uploaded successfully via IPC:', response.data.fileId)
+      return response.data.fileId
     } catch (error) {
       console.error('❌ [ClaudeService] File upload error:', error)
-      throw error
+
+      // If it's already a ClaudeApiError, re-throw it
+      if (error instanceof ClaudeApiError) {
+        throw error
+      }
+
+      // Convert other errors to ClaudeApiError
+      throw new ClaudeApiError(
+        `File upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'network',
+        true
+      )
     }
   }
 
   async deleteFile(fileId: string): Promise<void> {
-    console.log('🗑️ [ClaudeService] Deleting file:', fileId)
-    
-    try {
-      const response = await fetch(`https://api.anthropic.com/v1/files/${fileId}`, {
-        method: 'DELETE',
-        headers: {
-          'x-api-key': this.client.apiKey!,
-          'anthropic-version': '2023-06-01',
-          'anthropic-beta': 'files-api-2025-04-14'
-        }
-      })
+    console.log('🗑️ [ClaudeService] Deleting file via IPC:', fileId)
 
-      if (!response.ok) {
-        const errorData = await response.json()
+    try {
+      // Use IPC to delete file from main process
+      const response = await window.api.claude.deleteFile(fileId)
+
+      if (!response.success) {
         throw new ClaudeApiError(
-          `File deletion failed: ${errorData.error?.message || response.statusText}`,
+          response.error || 'File deletion failed through IPC',
           'network',
           true
         )
       }
 
-      console.log('✅ [ClaudeService] File deleted successfully')
+      console.log('✅ [ClaudeService] File deleted successfully via IPC')
     } catch (error) {
       console.error('❌ [ClaudeService] File deletion error:', error)
-      throw error
+
+      // If it's already a ClaudeApiError, re-throw it
+      if (error instanceof ClaudeApiError) {
+        throw error
+      }
+
+      // Convert other errors to ClaudeApiError
+      throw new ClaudeApiError(
+        `File deletion failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'network',
+        true
+      )
     }
   }
 }
