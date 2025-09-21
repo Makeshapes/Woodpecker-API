@@ -26,7 +26,7 @@ import {
   validateWoodpeckerProspect,
 } from '@/utils/woodpeckerFormatter'
 import type { LeadData, ColumnMapping, LeadStatus } from '@/types/lead'
-import { getStandardFields } from '@/utils/fieldMapper'
+import { getStandardFields, type WoodpeckerField } from '@/utils/fieldMapper'
 import { Trash2, Copy, Download, ChevronDown, ChevronUp } from 'lucide-react'
 import { useState, useEffect, useMemo, useCallback, memo } from 'react'
 import type { ClaudeResponse } from '@/services/claudeService'
@@ -92,7 +92,7 @@ const LeadDetail = memo(function LeadDetail({
     Object.entries(lead).forEach(([key, value]) => {
       if (['id', 'status', 'selected'].includes(key) || !value) return
 
-      if (standardFieldNames.includes(key as any)) {
+      if (standardFieldNames.includes(key as WoodpeckerField)) {
         woodpecker[key] = String(value)
       } else {
         additional[key] = String(value)
@@ -131,7 +131,7 @@ const LeadDetail = memo(function LeadDetail({
       const interval = setInterval(loadContent, 2000)
       return () => clearInterval(interval)
     }
-  }, [open, lead.id, woodpeckerFields.email])
+  }, [open, lead.id, woodpeckerFields.email, lead])
 
   // Convert generated content to plain text when available
   useEffect(() => {
@@ -163,7 +163,7 @@ const LeadDetail = memo(function LeadDetail({
       onStatusUpdate?.(lead.id, 'approved')
       toast.success('Content approved and converted to HTML format')
     },
-    [lead.id, woodpeckerFields.email, onStatusUpdate]
+    [onStatusUpdate, lead]
   )
 
   const handleApprovalStatusChange = useCallback(() => {
