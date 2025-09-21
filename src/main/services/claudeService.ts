@@ -1,6 +1,6 @@
 import { logger } from '../utils/logger'
 import { settingsService } from './settingsService'
-import { textToHtml, ensureHtml } from '../../utils/htmlConverter'
+import { textToHtml, ensureHtml, htmlToText } from '../../utils/htmlConverter'
 
 // Lazy load Anthropic SDK only when needed
 let anthropicClient: any = null
@@ -212,9 +212,9 @@ export class ClaudeService {
     const tags = String(leadData.tags || '')
 
     // Parse each block
-    const snippet1 = blocks[0].trim() // Subject line (plain text)
+    const snippet1 = htmlToText(blocks[0].trim()) // Subject line (ensure plain text)
     const snippet2 = textToHtml(blocks[1].trim()) // Day 1 Email (convert to HTML)
-    const snippet3 = blocks[2].trim() // LinkedIn message (plain text)
+    const snippet3 = htmlToText(blocks[2].trim()) // LinkedIn message (ensure plain text)
     const snippet4 = textToHtml(blocks[3].trim()) // Day 5 Bump (convert to HTML)
     const snippet5 = textToHtml(blocks[4].trim()) // Day 9-10 Follow-up (convert to HTML)
     const snippet6 = textToHtml(blocks[5].trim()) // Day 13 Bump (convert to HTML)
