@@ -3,13 +3,12 @@
  * Story 1.5: Enhanced Content Editing Workflow with Plain Text UI
  */
 
-import React, { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Edit, Save, X, AlertCircle } from 'lucide-react'
+import { AlertCircle } from 'lucide-react'
 import {
   type PlainTextContent,
   type LightValidationResult,
@@ -18,9 +17,7 @@ import {
 
 interface PlainTextEditorProps {
   content: PlainTextContent
-  onChange: (content: PlainTextContent) => void
-  editingField: string | null
-  onEditField: (field: string | null) => void
+  onChange: (field: keyof PlainTextContent, value: string) => void
   className?: string
 }
 
@@ -100,8 +97,6 @@ const FIELD_CONFIGS: FieldConfig[] = [
 export function PlainTextEditor({
   content,
   onChange,
-  editingField,
-  onEditField,
   className = '',
 }: PlainTextEditorProps) {
   const [validation, setValidation] = useState<LightValidationResult>({
@@ -109,16 +104,69 @@ export function PlainTextEditor({
     errors: [],
   })
 
-  // Ref for auto-resizing the multiline editor
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  // 🐛 DEBUG: Add tracking refs
+  const renderCount = useRef(0)
+  const lastCursorPosition = useRef<{[key: string]: number}>({})
+  const lastProps = useRef<PlainTextEditorProps>()
 
-  // Local state for editing - only updates parent on save
-  const [editingValue, setEditingValue] = useState<string>('')
-
-  // Debug: Track when content prop changes
+  // 🐛 DEBUG: Track renders and prop changes
   useEffect(() => {
-    console.log('🔄 [PlainTextEditor] Content prop changed:', content)
-  }, [content])
+    renderCount.current++
+    const propsChanged = lastProps.current ?
+      JSON.stringify(lastProps.current.content) !== JSON.stringify(content) : true
+
+    console.log(`🔄 [PlainTextEditor] Render #${renderCount.current}`, {
+      propsChanged,
+      contentKeys: Object.keys(content),
+      contentLengths: Object.keys(content).reduce((acc, key) => {
+        acc[key] = content[key as keyof PlainTextContent]?.length || 0
+        return acc
+      }, {} as Record<string, number>),
+      timestamp: Date.now()
+    })
+
+    lastProps.current = { content, onChange, className }
+  })
+
+  // Handle field value change - updates parent state directly
+  const handleFieldChange = useCallback(
+    (field: keyof PlainTextContent, value: string, event?: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      const input = event?.target
+      const cursorPos = input?.selectionStart || 0
+
+      console.log('⌨️ [PlainTextEditor] Field change:', {
+        field,
+        valueLength: value.length,
+        cursorPosition: cursorPos,
+        previousLength: content[field]?.length || 0,
+        timestamp: Date.now()
+      })
+
+      // Store cursor position before state update
+      lastCursorPosition.current[field] = cursorPos
+
+      // Update parent state
+      onChange(field, value)
+
+      // 🐛 DEBUG: Try to restore cursor position after React update
+      if (input) {
+        setTimeout(() => {
+          console.log('🎯 [PlainTextEditor] Attempting cursor restore:', {
+            field,
+            targetPosition: cursorPos,
+            currentPosition: input.selectionStart,
+            timestamp: Date.now()
+          })
+
+          if (input.setSelectionRange && document.activeElement === input) {
+            input.setSelectionRange(cursorPos, cursorPos)
+            console.log('✅ [PlainTextEditor] Cursor position restored to:', cursorPos)
+          }
+        }, 0)
+      }
+    },
+    [onChange, content]
+  )
 
   // Validate content and update validation state
   const validateContent = useCallback((newContent: PlainTextContent) => {
@@ -127,106 +175,10 @@ export function PlainTextEditor({
     return result
   }, [])
 
-  // Handle field value change - only updates local state
-  const handleFieldChange = useCallback(
-    (field: keyof PlainTextContent, value: string) => {
-      setEditingValue(value)
-      // Validate the potential new content without saving it
-      const potentialContent = { ...content, [field]: value }
-      validateContent(potentialContent)
-    },
-    [content, validateContent]
-  )
-
-  // Auto-resize the textarea when editing text changes
+  // Validate content whenever it changes
   useEffect(() => {
-    if (textareaRef.current) {
-      const el = textareaRef.current
-      el.style.height = 'auto'
-      el.style.height = Math.min(el.scrollHeight, 1200) + 'px'
-    }
-  }, [editingField, editingValue])
-
-  // Handle save editing - now updates parent state
-  const handleSave = useCallback(
-    (field: keyof PlainTextContent) => {
-      console.log(
-        '💾 [PlainTextEditor] Saving field:',
-        field,
-        'with value:',
-        editingValue
-      )
-
-      // For save operation, we only validate the current field, not the entire form
-      // This allows users to save individual fields even if other fields are incomplete
-      const fieldConfig = FIELD_CONFIGS.find((config) => config.key === field)
-      let canSave = true
-
-      if (fieldConfig) {
-        // Check field-specific validation
-        if (
-          fieldConfig.minLength &&
-          editingValue.length < fieldConfig.minLength
-        ) {
-          canSave = false
-          console.log(
-            '❌ [PlainTextEditor] Field too short:',
-            editingValue.length,
-            'min:',
-            fieldConfig.minLength
-          )
-        }
-        if (
-          fieldConfig.maxLength &&
-          editingValue.length > fieldConfig.maxLength
-        ) {
-          canSave = false
-          console.log(
-            '❌ [PlainTextEditor] Field too long:',
-            editingValue.length,
-            'max:',
-            fieldConfig.maxLength
-          )
-        }
-        if (fieldConfig.isSingleLine && editingValue.includes('\n')) {
-          canSave = false
-          console.log(
-            '❌ [PlainTextEditor] Single line field contains line breaks'
-          )
-        }
-      }
-
-      if (canSave) {
-        // Build new content with the current editing value
-        const newContent = { ...content, [field]: editingValue }
-        console.log('💾 [PlainTextEditor] New content object:', newContent)
-
-        // Update the parent with new content
-        onChange(newContent)
-        console.log(
-          '✅ [PlainTextEditor] Parent onChange called with new content'
-        )
-
-        // Exit editing mode immediately - the content prop will update and trigger a re-render
-        onEditField(null)
-        setEditingValue('')
-        console.log(
-          '✅ [PlainTextEditor] Save completed successfully, editing mode exited'
-        )
-      } else {
-        console.log('❌ [PlainTextEditor] Field validation failed, cannot save')
-      }
-    },
-    [content, editingValue, onChange, onEditField]
-  )
-
-  // Handle cancel editing - resets local state
-  const handleCancel = useCallback(() => {
-    onEditField(null)
-    setEditingValue('')
-    // Re-validate current content
     validateContent(content)
-  }, [onEditField, content, validateContent])
+  }, [content, validateContent])
 
   // Get validation error for specific field
   const getFieldError = useCallback(
@@ -239,8 +191,7 @@ export function PlainTextEditor({
   // Get character count info for field
   const getCharacterInfo = useCallback(
     (field: keyof PlainTextContent, config: FieldConfig) => {
-      const isEditing = editingField === field
-      const value = isEditing ? editingValue : content[field] || ''
+      const value = content[field] || ''
       const length = value.length
       const error = getFieldError(field)
 
@@ -252,36 +203,27 @@ export function PlainTextEditor({
           info += ` / ${config.maxLength}`
         }
 
-        const isError = error && error.currentLength !== undefined
+        // Check for errors based on current content
+        let isError = false
+        isError =
+          (config.minLength ? length < config.minLength : false) ||
+          (config.maxLength ? length > config.maxLength : false) ||
+          (error && error.currentLength !== undefined ? true : false)
+
         return { text: info, isError, length }
       }
 
       return { text: `${length}`, isError: false, length }
     },
-    [content, editingField, editingValue, getFieldError]
+    [content, getFieldError]
   )
 
   return (
     <div className={`space-y-4 ${className}`}>
       {FIELD_CONFIGS.map((config) => {
         const value = content[config.key] || ''
-        const isEditing = editingField === config.key
-        const displayValue = isEditing ? editingValue : value
         const error = getFieldError(config.key)
         const charInfo = getCharacterInfo(config.key, config)
-
-        // When starting to edit, initialize the editing value
-        const handleStartEdit = () => {
-          setEditingValue(value)
-          onEditField(config.key)
-        }
-
-        // Check if current editing value is valid for saving
-        const canSaveField =
-          !isEditing ||
-          ((!config.minLength || editingValue.length >= config.minLength) &&
-            (!config.maxLength || editingValue.length <= config.maxLength) &&
-            (!config.isSingleLine || !editingValue.includes('\n')))
 
         return (
           <Card key={config.key} className="relative">
@@ -307,16 +249,6 @@ export function PlainTextEditor({
                   {error && (
                     <AlertCircle className="h-4 w-4 text-destructive" />
                   )}
-                  {!isEditing && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={handleStartEdit}
-                      className="h-8 w-8 p-0"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                  )}
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
@@ -330,62 +262,25 @@ export function PlainTextEditor({
               )}
             </CardHeader>
             <CardContent>
-              {isEditing ? (
-                <div className="space-y-3">
-                  {config.isSingleLine ? (
-                    <Input
-                      value={displayValue}
-                      onChange={(e) =>
-                        handleFieldChange(config.key, e.target.value)
-                      }
-                      placeholder={config.placeholder}
-                      className={error ? 'border-destructive' : ''}
-                      maxLength={config.maxLength}
-                    />
-                  ) : (
-                    <Textarea
-                      value={displayValue}
-                      onChange={(e) =>
-                        handleFieldChange(config.key, e.target.value)
-                      }
-                      placeholder={config.placeholder}
-                      className={`min-h-[240px] md:min-h-[320px] resize-y ${error ? 'border-destructive' : ''}`}
-                      ref={textareaRef}
-                      style={{
-                        lineHeight: '1.5',
-                        fontFamily: 'inherit',
-                        overflow: 'hidden',
-                      }}
-                    />
-                  )}
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      onClick={() => handleSave(config.key)}
-                      disabled={!canSaveField}
-                    >
-                      <Save className="h-4 w-4 mr-1" />
-                      Save
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={handleCancel}>
-                      <X className="h-4 w-4 mr-1" />
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
+              {config.isSingleLine ? (
+                <Input
+                  value={value}
+                  onChange={(e) =>
+                    handleFieldChange(config.key, e.target.value, e)
+                  }
+                  placeholder={config.placeholder}
+                  className={error ? 'border-destructive' : ''}
+                  maxLength={config.maxLength}
+                />
               ) : (
-                <div
-                  className="min-h-[60px] p-3 rounded-md border bg-muted/20 cursor-pointer hover:bg-muted/30 transition-colors"
-                  onClick={handleStartEdit}
-                >
-                  {value ? (
-                    <div className="whitespace-pre-wrap text-sm">{value}</div>
-                  ) : (
-                    <div className="text-muted-foreground text-sm italic">
-                      Click to add {config.label.toLowerCase()}...
-                    </div>
-                  )}
-                </div>
+                <Textarea
+                  value={value}
+                  onChange={(e) =>
+                    handleFieldChange(config.key, e.target.value, e)
+                  }
+                  placeholder={config.placeholder}
+                  className={`min-h-[120px] resize-y ${error ? 'border-destructive' : ''}`}
+                />
               )}
             </CardContent>
           </Card>

@@ -24,25 +24,53 @@ export const ContentEditable: React.FC<ContentEditableProps> = ({
 }) => {
   const divRef = useRef<HTMLDivElement>(null)
   const lastValueRef = useRef(value)
+  const isMountedRef = useRef(false)
 
-  // Update content when value prop changes (but not due to our own edits)
+  // Handle initial content and subsequent updates
   useEffect(() => {
-    if (divRef.current && value !== lastValueRef.current) {
-      const selection = window.getSelection()
-      const range = selection?.rangeCount ? selection.getRangeAt(0) : null
-      const isSelectionInDiv = range && divRef.current.contains(range.commonAncestorContainer)
-
-      // Only update if the div doesn't have focus or selection
-      if (!isSelectionInDiv || document.activeElement !== divRef.current) {
+    if (!isMountedRef.current) {
+      // First mount - always set initial content
+      if (divRef.current) {
         divRef.current.innerHTML = value
         lastValueRef.current = value
+        console.log('🚀 [ContentEditable] Initial content set on mount:', value.length, 'chars')
+      }
+      isMountedRef.current = true
+    } else {
+      // Subsequent updates - only update if not focused and value actually changed
+      if (divRef.current && value !== lastValueRef.current) {
+        const isActive = document.activeElement === divRef.current
+
+        console.log('🔄 [ContentEditable] Value changed after mount:', {
+          isActive,
+          valueLength: value.length,
+          previousLength: lastValueRef.current.length
+        })
+
+        if (!isActive) {
+          divRef.current.innerHTML = value
+          lastValueRef.current = value
+          console.log('✅ [ContentEditable] Content updated (not focused)')
+        } else {
+          console.log('⏭️ [ContentEditable] Skipping content update (element focused)')
+        }
       }
     }
   }, [value])
 
   const handleInput = useCallback(() => {
     if (divRef.current) {
+      const selection = window.getSelection()
+      const range = selection?.rangeCount ? selection.getRangeAt(0) : null
+      const cursorOffset = range?.startOffset || 0
+
       const newValue = divRef.current.innerHTML
+      console.log('⌨️ [ContentEditable] Input event:', {
+        contentLength: newValue.length,
+        cursorOffset,
+        timestamp: Date.now()
+      })
+
       lastValueRef.current = newValue
       onChange(newValue)
     }
@@ -107,7 +135,6 @@ export const ContentEditable: React.FC<ContentEditableProps> = ({
         '[&_p]:my-1 [&_h1]:my-1 [&_h2]:my-1 [&_h3]:my-1',
         className
       )}
-      dangerouslySetInnerHTML={{ __html: value }}
       onInput={handleInput}
       onKeyDown={handleKeyDown}
       onPaste={handlePaste}

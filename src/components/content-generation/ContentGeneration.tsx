@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { Input } from '@/components/ui/input'
 import { ContentEditable } from '@/components/ui/content-editable'
-import { htmlToText, ensureHtml } from '@/utils/htmlConverter'
+import { ensureHtml } from '@/utils/htmlConverter'
 import {
   Card,
   CardContent,
@@ -176,9 +177,6 @@ export function ContentGeneration({
     snippet6: '',
     snippet7: '',
   })
-  const [editingPlainTextField, setEditingPlainTextField] = useState<
-    string | null
-  >(null)
   const [showJsonOutput, setShowJsonOutput] = useState(false)
 
   // Calculate token counts and pricing
@@ -367,7 +365,7 @@ export function ContentGeneration({
     }
 
     loadExistingContent()
-  }, [lead.email, lead.id, lead.status, onContentUpdate, onStatusUpdate])
+  }, [lead.id])
 
   // Convert HTML to plain text when enhanced editing is enabled and we have content but no plain text
   useEffect(() => {
@@ -1496,9 +1494,15 @@ Dan`
 
   const startEditing = (snippetKey: string) => {
     setEditingSnippet(snippetKey)
-    // Edit HTML directly with ContentEditable
     const raw = content?.[snippetKey as keyof ClaudeResponse] || ''
-    const editValue = ensureHtml(String(raw))
+
+    // Find the snippet configuration to check if it's HTML
+    const snippetConfig = SNIPPETS.find(s => s.key === snippetKey)
+    const isHtmlField = snippetConfig?.isHtml || false
+
+    // Only apply HTML formatting to HTML fields
+    const editValue = isHtmlField ? ensureHtml(String(raw)) : String(raw)
+
     setEditedContent({
       ...editedContent,
       [snippetKey]: editValue,
@@ -1508,9 +1512,14 @@ Dan`
   const saveEdit = (snippetKey: string) => {
     if (!content) return
 
-    // Since we're editing HTML directly, store the content as-is
     const edited = editedContent[snippetKey as keyof ClaudeResponse]
-    const valueToStore = ensureHtml(String(edited || ''))
+
+    // Find the snippet configuration to check if it's HTML
+    const snippetConfig = SNIPPETS.find(s => s.key === snippetKey)
+    const isHtmlField = snippetConfig?.isHtml || false
+
+    // Only apply HTML formatting to HTML fields
+    const valueToStore = isHtmlField ? ensureHtml(String(edited || '')) : String(edited || '')
 
     const updatedContent = {
       ...content,
@@ -1584,13 +1593,63 @@ Dan`
 
   // Enhanced editing callbacks (Story 1.5)
   const handlePlainTextContentChange = useCallback(
-    (newContent: PlainTextContent) => {
-      console.log('📝 [Enhanced Editing] Received new content:', newContent)
-      setPlainTextContent(newContent)
-      console.log('📝 [Enhanced Editing] Plain text content updated in state')
+    (field: keyof PlainTextContent, value: string) => {
+      console.log('📝 [Enhanced Editing] Field change:', field, 'value:', value)
+      setPlainTextContent(prev => {
+        const newContent = { ...prev, [field]: value }
+        console.log('📝 [Enhanced Editing] Updated content:', newContent)
+        return newContent
+      })
     },
     []
   )
+
+  // Explicit persist for plain text to current content/localStorage/DB
+  const persistPlainTextEdits = useCallback(async () => {
+    // Convert plain text back into ClaudeResponse-like shape using existing lead/context
+    const updated: ClaudeResponse = {
+      email: String(lead.email || ''),
+      first_name: String((lead as Record<string, unknown>)?.first_name || ''),
+      last_name: String((lead as Record<string, unknown>)?.last_name || ''),
+      company: String((lead as Record<string, unknown>)?.company || ''),
+      title: String((lead as Record<string, unknown>)?.title || ''),
+      linkedin_url: String(
+        (lead as Record<string, unknown>)?.linkedin_url || ''
+      ),
+      tags: String((lead as Record<string, unknown>)?.tags || ''),
+      industry: String((lead as Record<string, unknown>)?.industry || ''),
+      snippet1: plainTextContent.snippet1,
+      snippet2: plainTextContent.snippet2,
+      snippet3: plainTextContent.snippet3,
+      snippet4: plainTextContent.snippet4,
+      snippet5: plainTextContent.snippet5,
+      snippet6: plainTextContent.snippet6,
+      snippet7: plainTextContent.snippet7,
+    }
+    setContent(updated)
+    onContentUpdate?.(updated)
+
+    // Save to localStorage
+    const localStorageKey = getLocalStorageKey(lead)
+    const dataToStore = { ...updated, generatedAt: new Date().toISOString() }
+    localStorage.setItem(localStorageKey, JSON.stringify(dataToStore))
+
+    // Save to DB if numeric id
+    const numericId = parseInt(String(lead.id))
+    if (Number.isFinite(numericId)) {
+      try {
+        await contentStorage.persistContentToStorage(
+          String(numericId),
+          updated,
+          1
+        )
+        console.log('✅ Plain text edits persisted to DB for lead:', numericId)
+      } catch (err) {
+        console.error('Failed to persist plain text edits to DB:', err)
+      }
+    }
+    toast.success('Content saved')
+  }, [lead, onContentUpdate, plainTextContent])
 
   const renderContent = (snippet: SnippetConfig) => {
     const snippetContent = content?.[snippet.key]
@@ -1663,18 +1722,48 @@ Dan`
         <CardContent className="pt-0">
           {isEditing ? (
             <div className="mt-4">
-              <ContentEditable
-                value={String(editedContent[snippet.key] || '')}
-                onChange={(value) =>
-                  setEditedContent({
-                    ...editedContent,
-                    [snippet.key]: value,
-                  })
-                }
-                className="min-h-[120px] text-sm"
-                placeholder="Edit the content here..."
-                aria-label={`Edit ${snippet.title}`}
-              />
+              {snippet.isHtml ? (
+                <ContentEditable
+                  value={String(editedContent[snippet.key] || '')}
+                  onChange={(value) =>
+                    setEditedContent({
+                      ...editedContent,
+                      [snippet.key]: value,
+                    })
+                  }
+                  className="min-h-[120px] text-sm"
+                  placeholder="Edit the content here..."
+                  aria-label={`Edit ${snippet.label}`}
+                />
+              ) : snippet.key === 'snippet1' ? (
+                // Email Subject - single line input
+                <Input
+                  value={String(editedContent[snippet.key] || '')}
+                  onChange={(e) =>
+                    setEditedContent({
+                      ...editedContent,
+                      [snippet.key]: e.target.value,
+                    })
+                  }
+                  className="text-sm"
+                  placeholder="Edit the subject line..."
+                  aria-label={`Edit ${snippet.label}`}
+                />
+              ) : (
+                // LinkedIn Message - multi-line textarea
+                <Textarea
+                  value={String(editedContent[snippet.key] || '')}
+                  onChange={(e) =>
+                    setEditedContent({
+                      ...editedContent,
+                      [snippet.key]: e.target.value,
+                    })
+                  }
+                  className="min-h-[120px] text-sm"
+                  placeholder="Edit the content here..."
+                  aria-label={`Edit ${snippet.label}`}
+                />
+              )}
             </div>
           ) : (
             // Preview mode - show rendered content, click to edit
@@ -1839,11 +1928,18 @@ Dan`
                   <PlainTextEditor
                     content={plainTextContent}
                     onChange={handlePlainTextContentChange}
-                    editingField={editingPlainTextField}
-                    onEditField={setEditingPlainTextField}
                   />
                 ) : (
                   <div className="space-y-4">{SNIPPETS.map(renderContent)}</div>
+                )}
+                {/* Persist bar for plaintext mode */}
+                {editingMode === 'plaintext' && (
+                  <div className="flex justify-end">
+                    <Button size="sm" onClick={persistPlainTextEdits}>
+                      <Save className="h-4 w-4 mr-2" />
+                      Save All Changes
+                    </Button>
+                  </div>
                 )}
               </div>
             ) : (

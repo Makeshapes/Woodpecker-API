@@ -126,10 +126,6 @@ const LeadDetail = memo(function LeadDetail({
       }
 
       loadContent()
-
-      // Set up interval to refresh content every 2 seconds to catch edits
-      const interval = setInterval(loadContent, 2000)
-      return () => clearInterval(interval)
     }
   }, [open, lead.id, woodpeckerFields.email, lead])
 
