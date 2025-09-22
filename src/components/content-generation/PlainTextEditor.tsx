@@ -106,23 +106,27 @@ export function PlainTextEditor({
 
   // 🐛 DEBUG: Add tracking refs
   const renderCount = useRef(0)
-  const lastCursorPosition = useRef<{[key: string]: number}>({})
+  const lastCursorPosition = useRef<{ [key: string]: number }>({})
   const lastProps = useRef<PlainTextEditorProps>()
 
   // 🐛 DEBUG: Track renders and prop changes
   useEffect(() => {
     renderCount.current++
-    const propsChanged = lastProps.current ?
-      JSON.stringify(lastProps.current.content) !== JSON.stringify(content) : true
+    const propsChanged = lastProps.current
+      ? JSON.stringify(lastProps.current.content) !== JSON.stringify(content)
+      : true
 
     console.log(`🔄 [PlainTextEditor] Render #${renderCount.current}`, {
       propsChanged,
       contentKeys: Object.keys(content),
-      contentLengths: Object.keys(content).reduce((acc, key) => {
-        acc[key] = content[key as keyof PlainTextContent]?.length || 0
-        return acc
-      }, {} as Record<string, number>),
-      timestamp: Date.now()
+      contentLengths: Object.keys(content).reduce(
+        (acc, key) => {
+          acc[key] = content[key as keyof PlainTextContent]?.length || 0
+          return acc
+        },
+        {} as Record<string, number>
+      ),
+      timestamp: Date.now(),
     })
 
     lastProps.current = { content, onChange, className }
@@ -130,7 +134,11 @@ export function PlainTextEditor({
 
   // Handle field value change - updates parent state directly
   const handleFieldChange = useCallback(
-    (field: keyof PlainTextContent, value: string, event?: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    (
+      field: keyof PlainTextContent,
+      value: string,
+      event?: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    ) => {
       const input = event?.target
       const cursorPos = input?.selectionStart || 0
 
@@ -139,7 +147,7 @@ export function PlainTextEditor({
         valueLength: value.length,
         cursorPosition: cursorPos,
         previousLength: content[field]?.length || 0,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       })
 
       // Store cursor position before state update
@@ -155,12 +163,15 @@ export function PlainTextEditor({
             field,
             targetPosition: cursorPos,
             currentPosition: input.selectionStart,
-            timestamp: Date.now()
+            timestamp: Date.now(),
           })
 
           if (input.setSelectionRange && document.activeElement === input) {
             input.setSelectionRange(cursorPos, cursorPos)
-            console.log('✅ [PlainTextEditor] Cursor position restored to:', cursorPos)
+            console.log(
+              '✅ [PlainTextEditor] Cursor position restored to:',
+              cursorPos
+            )
           }
         }, 0)
       }

@@ -1497,7 +1497,7 @@ Dan`
     const raw = content?.[snippetKey as keyof ClaudeResponse] || ''
 
     // Find the snippet configuration to check if it's HTML
-    const snippetConfig = SNIPPETS.find(s => s.key === snippetKey)
+    const snippetConfig = SNIPPETS.find((s) => s.key === snippetKey)
     const isHtmlField = snippetConfig?.isHtml || false
 
     // Only apply HTML formatting to HTML fields
@@ -1515,11 +1515,13 @@ Dan`
     const edited = editedContent[snippetKey as keyof ClaudeResponse]
 
     // Find the snippet configuration to check if it's HTML
-    const snippetConfig = SNIPPETS.find(s => s.key === snippetKey)
+    const snippetConfig = SNIPPETS.find((s) => s.key === snippetKey)
     const isHtmlField = snippetConfig?.isHtml || false
 
     // Only apply HTML formatting to HTML fields
-    const valueToStore = isHtmlField ? ensureHtml(String(edited || '')) : String(edited || '')
+    const valueToStore = isHtmlField
+      ? ensureHtml(String(edited || ''))
+      : String(edited || '')
 
     const updatedContent = {
       ...content,
@@ -1595,7 +1597,7 @@ Dan`
   const handlePlainTextContentChange = useCallback(
     (field: keyof PlainTextContent, value: string) => {
       console.log('📝 [Enhanced Editing] Field change:', field, 'value:', value)
-      setPlainTextContent(prev => {
+      setPlainTextContent((prev) => {
         const newContent = { ...prev, [field]: value }
         console.log('📝 [Enhanced Editing] Updated content:', newContent)
         return newContent
