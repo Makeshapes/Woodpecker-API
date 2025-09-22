@@ -138,6 +138,7 @@
       "title": "Woodpecker API Installer",
       "icon": "assets/icons/icon.icns",
       "background": "assets/dmg-background.png",
+      "format": "UDZO",
       "window": {
         "width": 540,
         "height": 380
