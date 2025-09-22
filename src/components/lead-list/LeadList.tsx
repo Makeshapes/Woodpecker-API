@@ -33,12 +33,17 @@ interface LeadListProps {
 type SortField = string
 type SortDirection = 'asc' | 'desc'
 
+interface DisplayColumn {
+  key: string
+  label: string
+  getDisplayValue?: (lead: LeadData) => string
+}
+
 const LeadList = memo(function LeadList({
   leads,
   columnMapping,
   onLeadSelect,
   onLeadDetail,
-  onStatusUpdate: _onStatusUpdate,
   onDeleteLead,
 }: LeadListProps) {
   const [searchTerm, setSearchTerm] = useState('')
@@ -58,16 +63,43 @@ const LeadList = memo(function LeadList({
       // Search filter
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase()
-        const searchableFields = ['company', 'contact', 'title']
+        const searchableFields = [
+          'company',
+          'contact',
+          'title',
+          'first_name',
+          'last_name',
+          'Full Name',
+          'contact_name',
+        ]
 
         return searchableFields.some((field) => {
+          if (field === 'contact') {
+            // For contact field, search both first_name/last_name and full name fields
+            const firstName = String(lead.first_name || '')
+            const lastName = String(lead.last_name || '')
+            const fullName = String(
+              lead['Full Name'] || lead.contact_name || ''
+            )
+            const combinedName = [firstName, lastName].filter(Boolean).join(' ')
+
+            const searchValues = [
+              fullName,
+              combinedName,
+              firstName,
+              lastName,
+            ].filter(Boolean)
+            return searchValues.some((value) =>
+              value.toLowerCase().includes(searchLower)
+            )
+          }
+
           const originalHeader = Object.keys(columnMapping).find(
             (key) => columnMapping[key] === field
           )
-          const value = originalHeader ? lead[originalHeader] : ''
-          return String(value || '')
-            .toLowerCase()
-            .includes(searchLower)
+          const value = originalHeader ? lead[originalHeader] : lead[field]
+          const stringValue = String(value || '')
+          return stringValue.toLowerCase().includes(searchLower)
         })
       }
 
@@ -80,8 +112,24 @@ const LeadList = memo(function LeadList({
     if (!sortField) return filteredLeads
 
     return [...filteredLeads].sort((a, b) => {
-      const aValue = String(a[sortField] || '')
-      const bValue = String(b[sortField] || '')
+      let aValue: string
+      let bValue: string
+
+      if (sortField === 'contact') {
+        // For contact field, get the display value
+        const getContactValue = (lead: LeadData) => {
+          const firstName = String(lead.first_name || '')
+          const lastName = String(lead.last_name || '')
+          const fullName = String(lead['Full Name'] || lead.contact_name || '')
+          const combinedName = [firstName, lastName].filter(Boolean).join(' ')
+          return fullName || combinedName || ''
+        }
+        aValue = getContactValue(a)
+        bValue = getContactValue(b)
+      } else {
+        aValue = String(a[sortField] || '')
+        bValue = String(b[sortField] || '')
+      }
 
       const comparison = aValue.localeCompare(bValue)
       return sortDirection === 'asc' ? comparison : -comparison
@@ -131,27 +179,52 @@ const LeadList = memo(function LeadList({
         return 'bg-yellow-100 text-yellow-800'
       case 'exported':
         return 'bg-gray-100 text-gray-800'
+      default:
+        return 'bg-gray-100 text-gray-800'
     }
   }
 
   // Get key columns to display
-  const displayColumns = useMemo(() => {
+  const displayColumns = useMemo((): DisplayColumn[] => {
     // Use the actual field names that exist in the lead data
-    const standardFields = [
-      { key: 'company', label: 'Company' },
-      { key: 'Full Name', label: 'Contact' }, // Check additional fields first
+    const standardFields: DisplayColumn[] = [
       { key: 'title', label: 'Title' },
+      { key: 'company', label: 'Company' },
     ]
+
+    // Check if any leads have name fields
+    const hasNameFields = leads.some(
+      (lead) =>
+        lead.first_name ||
+        lead.last_name ||
+        lead['Full Name'] ||
+        lead.contact_name
+    )
+
+    // If we have name fields, add a contact column at the beginning
+    if (hasNameFields) {
+      standardFields.unshift({
+        key: 'contact',
+        label: 'Contact',
+        getDisplayValue: (lead: LeadData) => {
+          // Try multiple ways to get the contact name
+          const firstName = String(lead.first_name || '')
+          const lastName = String(lead.last_name || '')
+          const fullName = String(lead['Full Name'] || lead.contact_name || '')
+          const combinedName = [firstName, lastName].filter(Boolean).join(' ')
+
+          // Return the first non-empty name we find
+          return fullName || combinedName || ''
+        },
+      })
+    }
 
     // Filter to only show columns that actually have data
     return standardFields.filter((field) => {
-      return leads.some(
-        (lead) =>
-          lead[field.key] ||
-          (field.key === 'Full Name' && lead['Full Name']) ||
-          (field.key === 'company' && lead.company) ||
-          (field.key === 'title' && lead.title)
-      )
+      if (field.key === 'contact') {
+        return hasNameFields
+      }
+      return leads.some((lead) => lead[field.key])
     })
   }, [leads])
 
@@ -274,13 +347,19 @@ const LeadList = memo(function LeadList({
                       {lead.status}
                     </Badge>
                   </TableCell>
-                  {displayColumns.map(({ key }) => (
+                  {displayColumns.map(({ key, getDisplayValue }) => (
                     <TableCell key={key}>
                       <div
                         className="max-w-[200px] truncate"
-                        title={String(lead[key] || '')}
+                        title={
+                          getDisplayValue
+                            ? getDisplayValue(lead)
+                            : String(lead[key] || '')
+                        }
                       >
-                        {String(lead[key] || '') || '-'}
+                        {getDisplayValue
+                          ? getDisplayValue(lead)
+                          : String(lead[key] || '') || '-'}
                       </div>
                     </TableCell>
                   ))}
