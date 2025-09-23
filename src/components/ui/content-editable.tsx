@@ -121,7 +121,8 @@ export const ContentEditable: React.FC<ContentEditableProps> = ({
       ref={divRef}
       contentEditable={!disabled}
       className={cn(
-        'min-h-[200px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background',
+        'min-h-[200px] max-h-[400px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background',
+        'overflow-y-auto scroll-smooth',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         'disabled:cursor-not-allowed disabled:opacity-50',
         // Email-accurate spacing - minimal gaps between paragraphs
