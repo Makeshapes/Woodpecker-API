@@ -197,6 +197,14 @@ export class ContentGenerationService {
           )
 
           // Call Claude API via IPC bridge
+          console.log('🔧 [DEBUG - ContentGenerationService] Calling Claude API with:')
+          console.log('🔧 [DEBUG] userPrompt length:', userPrompt.length, 'chars')
+          console.log('🔧 [DEBUG] userPrompt content:', userPrompt.substring(0, 500) + '...')
+          console.log('🔧 [DEBUG] finalSystemPrompt length:', finalSystemPrompt?.length || 0, 'chars')
+          console.log('🔧 [DEBUG] finalSystemPrompt preview:', finalSystemPrompt?.substring(0, 200) + '...' || 'None')
+          console.log('🔧 [DEBUG] fileIds:', fileIds)
+          console.log('🔧 [DEBUG] modelId:', modelId)
+
           const response = await window.api.claude.generateContent({
             prompt: userPrompt,
             leadData: leadData as unknown as Record<string, unknown>,
@@ -206,11 +214,18 @@ export class ContentGenerationService {
             maxRetries: 3,
           })
 
+          console.log('🔧 [DEBUG - ContentGenerationService] Claude API response received:')
+          console.log('🔧 [DEBUG] response.success:', response.success)
+
           if (!response.success) {
+            console.log('🔧 [DEBUG] ERROR from Claude API:', response.error)
             throw new Error(response.error.message || 'Claude API call failed')
           }
 
           content = response.data
+          console.log('🔧 [DEBUG] Claude response data keys:', Object.keys(content))
+          console.log('🔧 [DEBUG] Claude response snippet1 length:', content.snippet1?.length || 0)
+          console.log('🔧 [DEBUG] Claude response snippet1 content:', content.snippet1?.substring(0, 100) || 'None')
           console.log(
             '✅ [ContentGenerationService] Claude API returned content successfully'
           )

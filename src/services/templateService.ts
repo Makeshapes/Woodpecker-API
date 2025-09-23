@@ -130,6 +130,9 @@ export class TemplateService {
 
     // Get the base prompt from template
     let prompt = this.substituteVariables(template.template, enrichedLeadData)
+    console.log('🔧 [DEBUG - TemplateService] Base template prompt generated:')
+    console.log('🔧 [DEBUG] Base template length:', prompt.length, 'chars')
+    console.log('🔧 [DEBUG] Base template preview:', prompt.substring(0, 300) + '...')
 
     // If there's a custom_prompt, add it as additional context
     const maybeCustomPrompt = leadData.custom_prompt
@@ -162,11 +165,16 @@ export class TemplateService {
         prompt.length,
         'chars'
       )
+      console.log('🔧 [DEBUG - TemplateService] Final combined prompt preview:')
+      console.log('🔧 [DEBUG]', prompt.substring(0, 500) + '...')
     } else {
-      console.log(
-        'ℹ️ [TemplateService] No custom prompt provided or custom prompt is empty'
-      )
+      console.log('🔧 [DEBUG - TemplateService] No custom prompt provided, using base template only')
     }
+
+    console.log('🔧 [DEBUG - TemplateService] Final prompt being returned:')
+    console.log('🔧 [DEBUG] Final length:', prompt.length, 'chars')
+    console.log('🔧 [DEBUG] Contains template instructions:', prompt.includes('You are a sales email expert'))
+    console.log('🔧 [DEBUG] Contains user context:', prompt.includes('IMPORTANT CONTEXT FROM USER'))
 
     return prompt
   }

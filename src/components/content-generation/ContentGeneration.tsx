@@ -783,6 +783,10 @@ Dan`
     console.log('🚀 Starting content generation for lead:', lead.email)
     console.log('📝 Custom prompt:', customPrompt)
     console.log('🤖 Selected model:', selectedModel)
+    console.log('🔧 [DEBUG] System prompt length:', systemPrompt.length, 'chars')
+    console.log('🔧 [DEBUG] System prompt preview:', systemPrompt.substring(0, 200) + '...')
+    console.log('🔧 [DEBUG] Custom prompt length:', customPrompt.length, 'chars')
+    console.log('🔧 [DEBUG] Custom prompt content:', customPrompt)
 
     try {
       // Build prompt with file references or base64 data as fallback
@@ -851,6 +855,9 @@ Dan`
 
       // Debug: Log the lead data being sent
       console.log('📊 Lead data being sent to Claude:', leadData)
+      console.log('🔧 [DEBUG] Final userPrompt being sent in leadData.custom_prompt:', userPrompt)
+      console.log('🔧 [DEBUG] Final userPrompt length:', userPrompt.length, 'chars')
+      console.log('🔧 [DEBUG] SystemPrompt being passed separately:', systemPrompt.length, 'chars')
 
       // Update status to show generating even if component unmounts
       console.log(

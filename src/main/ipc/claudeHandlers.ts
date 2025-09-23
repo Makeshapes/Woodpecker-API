@@ -61,14 +61,26 @@ export function setupClaudeHandlers(): void {
       // Sanitize input
       const sanitizedRequest = sanitizeInput(request) as ClaudeGenerateContentRequest
       
+      // Debug: Log received request details
+      console.log('🔧 [DEBUG - ClaudeHandlers] Received request:')
+      console.log('🔧 [DEBUG] prompt length:', sanitizedRequest.prompt?.length || 0, 'chars')
+      console.log('🔧 [DEBUG] prompt preview:', sanitizedRequest.prompt?.substring(0, 300) + '...' || 'None')
+      console.log('🔧 [DEBUG] systemPrompt length:', sanitizedRequest.systemPrompt?.length || 0, 'chars')
+      console.log('🔧 [DEBUG] systemPrompt preview:', sanitizedRequest.systemPrompt?.substring(0, 200) + '...' || 'None')
+      console.log('🔧 [DEBUG] fileIds count:', sanitizedRequest.fileIds?.length || 0)
+      console.log('🔧 [DEBUG] modelId:', sanitizedRequest.modelId)
+
       // Validate prompt length
       if (!sanitizedRequest.prompt || sanitizedRequest.prompt.trim().length === 0) {
         throw new Error('Prompt cannot be empty')
       }
-      
+
       if (sanitizedRequest.prompt.length > 100000) {
+        console.log('🔧 [DEBUG] PROMPT TOO LONG! Length:', sanitizedRequest.prompt.length)
         throw new Error('Prompt is too long (max 100,000 characters)')
       }
+
+      console.log('🔧 [DEBUG] Prompt length validation passed:', sanitizedRequest.prompt.length, 'chars')
 
       // Validate leadData
       if (!sanitizedRequest.leadData || typeof sanitizedRequest.leadData !== 'object') {
@@ -79,6 +91,10 @@ export function setupClaudeHandlers(): void {
       const service = initializeClaudeService()
 
       // Generate content with retry
+      console.log('🔧 [DEBUG - ClaudeHandlers] Calling Claude service with:')
+      console.log('🔧 [DEBUG] Final prompt to Claude service:', sanitizedRequest.prompt.length, 'chars')
+      console.log('🔧 [DEBUG] Final systemPrompt to Claude service:', sanitizedRequest.systemPrompt?.length || 0, 'chars')
+
       const result = await service.generateContentWithRetry(
         sanitizedRequest.prompt,
         sanitizedRequest.leadData,
@@ -87,6 +103,10 @@ export function setupClaudeHandlers(): void {
         sanitizedRequest.systemPrompt,
         sanitizedRequest.fileIds
       )
+
+      console.log('🔧 [DEBUG - ClaudeHandlers] Claude service returned result:')
+      console.log('🔧 [DEBUG] Result keys:', Object.keys(result))
+      console.log('🔧 [DEBUG] Result snippet1 preview:', result.snippet1?.substring(0, 100) || 'None')
 
       logger.info('ClaudeHandlers', 'Content generation completed successfully')
       return createSuccessResponse(result)
