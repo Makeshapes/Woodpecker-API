@@ -52,7 +52,8 @@ export class ContentGenerationService {
     leadData: LeadData,
     templateName: string = 'email-sequence',
     modelId?: string,
-    numericLeadId?: number
+    numericLeadId?: number,
+    systemPrompt?: string
   ): Promise<ContentGenerationResult> {
     const leadId = this.generateLeadId(leadData)
 
@@ -155,33 +156,36 @@ export class ContentGenerationService {
             maxRetries: 3,
           })
 
-          // Extract system prompt from custom_prompt if it exists
-          let systemPrompt: string | undefined
+          // Use system prompt if provided, otherwise try to extract from custom_prompt as fallback
+          let finalSystemPrompt = systemPrompt
           let userPrompt = prompt
 
-          if (
-            leadData.custom_prompt &&
-            typeof leadData.custom_prompt === 'string'
-          ) {
+          if (!finalSystemPrompt && leadData.custom_prompt && typeof leadData.custom_prompt === 'string') {
             const customPromptStr = leadData.custom_prompt as string
-            // Check if it contains the system prompt pattern
+            // Check if it contains the system prompt pattern (fallback for backwards compatibility)
             const systemPromptMatch = customPromptStr.match(
               /^(# Makeshapes Cold Email.*?)(\n\n(?:Tell me about|Here's|Please).*)/s
             )
             if (systemPromptMatch) {
-              systemPrompt = systemPromptMatch[1]
+              finalSystemPrompt = systemPromptMatch[1]
               userPrompt = systemPromptMatch[2].trim()
               console.log(
-                '📋 [ContentGenerationService] Separated system prompt:',
-                systemPrompt.length,
+                '📋 [ContentGenerationService] Extracted system prompt from custom_prompt:',
+                finalSystemPrompt.length,
                 'chars'
               )
               console.log(
-                '👤 [ContentGenerationService] User prompt:',
+                '👤 [ContentGenerationService] Extracted user prompt:',
                 userPrompt.length,
                 'chars'
               )
             }
+          } else if (finalSystemPrompt) {
+            console.log(
+              '📋 [ContentGenerationService] Using provided system prompt:',
+              finalSystemPrompt.length,
+              'chars'
+            )
           }
 
           // Extract file IDs from leadData
@@ -197,7 +201,7 @@ export class ContentGenerationService {
             prompt: userPrompt,
             leadData: leadData as unknown as Record<string, unknown>,
             modelId,
-            systemPrompt,
+            systemPrompt: finalSystemPrompt,
             fileIds,
             maxRetries: 3,
           })

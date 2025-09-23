@@ -770,6 +770,12 @@ Dan`
       return
     }
 
+    // Check for maximum 4 images
+    if (fileAttachments.length > 4) {
+      setError('Maximum 4 images allowed per generation')
+      return
+    }
+
     setIsGenerating(true)
     setError(null)
 
@@ -839,7 +845,7 @@ Dan`
           getFieldValue('industry') ||
           'Technology',
         tags: leadRecord.tags?.toString() || getFieldValue('tags') || '',
-        custom_prompt: fullPromptWithSystem, // Include the full prompt with system prompt for processing
+        custom_prompt: userPrompt, // Include only user's additional context, not system prompt
         file_ids: fileIds, // Include file IDs for Files API
       }
 
@@ -876,7 +882,8 @@ Dan`
         leadData,
         'email-sequence',
         selectedModel,
-        validNumericId
+        validNumericId,
+        systemPrompt
       )
 
       // Debug: Log the raw result from Claude
